@@ -1,4 +1,26 @@
-function doGet(e) {
+/**
+ * RFID Smart Attendance Management System
+ * ---------------------------------------
+ * Receives attendance data from ESP32 via HTTP GET request
+ * Checks for duplicate attendance
+ * Stores attendance records in Google Sheets
+ *
+ * Author: Ritheshwaran A
+ * Platform: Google Apps Script
+ */
+ 
+/*
+Expected Sheet Format
+
+| Date | Time | Name | Register No | UID | Department | Status |
+
+*/
+
+//--------------------------------------------------
+// Main HTTP Request Handler
+//--------------------------------------------------
+
+ function doGet(e) {
   var lock = LockService.getScriptLock();
 
   try {

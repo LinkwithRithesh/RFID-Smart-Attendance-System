@@ -1,10 +1,30 @@
+/*
+ * RFID-Based Smart Attendance Management System
+ *
+ * Author      : Ritheshwaran A
+ * Platform    : ESP32 DevKit V1
+ * RFID Module : MFRC522
+ * Display     : 16x2 LCD (I2C)
+ * Cloud       : Google Sheets via Google Apps Script
+ *
+ * Description:
+ * This project records attendance using RFID cards,
+ * displays student information on an LCD, and uploads
+ * attendance records to Google Sheets over Wi-Fi.
+ */
+
+// Standard Libraries
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <SPI.h>
-#include <MFRC522.h>
 #include <Wire.h>
+
+// External Libraries
+#include <MFRC522.h>
 #include <LiquidCrystal_I2C.h>
+
+// Project Configuration
 #include "config.h"
 #include "secrets.h"
 
