@@ -5,17 +5,12 @@
 #include <MFRC522.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
-
-//-------------------- WiFi --------------------//
-
-const char* ssid = "Orbit";
-const char* password = "";
+#include "config.h"
+#include "secrets.h"
 
 //---------------- Google Script ----------------//
 
-String GOOGLE_SCRIPT_URL =
-"https://script.google.com/macros/s/AKfycbyzd-WAp3ibXVf9ogW0hfwq__X44W6CcVFCs62uJxs0LYSVSsAU9wf5SYdays9B8rBp/exec";
-
+String GOOGLE_SCRIPT_URL = SCRIPT_URL;
 //---------------- RC522 Pins ----------------//
 
 #define SS_PIN 5
@@ -117,7 +112,7 @@ void setup()
   lcd.setCursor(0,1);
   lcd.print("Connecting...");
 
-  WiFi.begin(ssid,password);
+WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   while(WiFi.status()!=WL_CONNECTED)
   {
@@ -303,8 +298,7 @@ void loop()
     lcd.print("Reconnecting");
 
     WiFi.disconnect();
-    WiFi.begin(ssid, password);
-
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     unsigned long startTime = millis();
 
     while (WiFi.status() != WL_CONNECTED &&
