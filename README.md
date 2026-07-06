@@ -83,7 +83,7 @@ This project demonstrates the integration of **Embedded Systems**, **IoT**, and 
 
 
 <p align="center">
-<img src="images/Circuit_Diagram.jpeg" width="900">
+<img src="images/Circuit_Diagram.png" width="900">
 </p>
 
 ---
@@ -372,7 +372,7 @@ RFID-Smart-Attendance-System
 ├── images
 │   ├── hardware_setup.jpeg
 │   ├── lcd_output.png
-|   ├── Circuit_Diagram.jpeg
+|   ├── Circuit_Diagram.png
 │   └── google_sheet_output.png
 │   
 ├── wokwi
