@@ -103,7 +103,7 @@ This project demonstrates the integration of **Embedded Systems**, **IoT**, and 
 
 
 <p align="center">
-<img src="images/lcd_output.jpeg" width="450">
+<img src="images/lcd_output.png" width="450">
 </p>
 
 ---
@@ -112,7 +112,7 @@ This project demonstrates the integration of **Embedded Systems**, **IoT**, and 
 
 
 <p align="center">
-<img src="images/google_sheet_output.jpeg" width="900">
+<img src="images/google_sheet_output.png" width="900">
 </p>
 
 ---
