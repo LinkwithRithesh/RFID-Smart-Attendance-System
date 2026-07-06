@@ -1,0 +1,22 @@
+# Arduino build files
+*.elf
+*.hex
+*.bin
+
+# Arduino IDE
+*.ino.cpp
+*.ino.eep
+
+# Build folders
+build/
+dist/
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets
+firmware/secrets.h
