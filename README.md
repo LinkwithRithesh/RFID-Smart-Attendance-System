@@ -92,10 +92,14 @@ This project demonstrates the integration of **Embedded Systems**, **IoT**, and 
 
 ## Hardware Setup
 
+🚧 **Prototype Under Development**
 
-<p align="center">
-<img src="images/hardware_setup.jpg" width="700">
-</p>
+The hardware prototype is currently being assembled and tested.
+
+Hardware photographs will be added after:
+- Circuit assembly
+- Functional testing
+- Prototype validation
 
 ---
 
