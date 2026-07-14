@@ -20,10 +20,12 @@ Expected Sheet Format
 // Main HTTP Request Handler
 //--------------------------------------------------
 
- function doGet(e) {
+function doGet(e) {
+
   var lock = LockService.getScriptLock();
 
   try {
+
     lock.waitLock(30000);
 
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sheet1");
@@ -32,20 +34,19 @@ Expected Sheet Format
       return ContentService.createTextOutput("Sheet not found");
     }
 
-    // Read parameters
+    // Read Parameters
     var name = String(e.parameter.name || "").trim();
     var reg = String(e.parameter.regno || "").trim();
     var uid = normalizeUID(e.parameter.uid || "");
     var dept = String(e.parameter.dept || "").trim();
     var status = String(e.parameter.status || "Present").trim();
 
-    if (uid === "") {
+    if (uid == "") {
       return ContentService.createTextOutput("UID Missing");
     }
 
     var now = new Date();
 
-    // Store date as yyyy-MM-dd
     var today = Utilities.formatDate(
       now,
       Session.getScriptTimeZone(),
@@ -58,81 +59,87 @@ Expected Sheet Format
       "HH:mm:ss"
     );
 
-    // Check duplicate
+    // Duplicate Check
     if (isAlreadyMarked(sheet, uid, today)) {
       return ContentService.createTextOutput("Already Marked");
     }
 
-    // Save attendance
+    // Append Attendance
     sheet.appendRow([
       today,
       time,
       name,
       reg,
-      uid,
+      "'" + uid,        // Store as text (keeps leading zero)
       dept,
       status
     ]);
 
+    SpreadsheetApp.flush();
+
     return ContentService.createTextOutput("Attendance Recorded");
 
-  } catch (err) {
+  }
+  catch(err){
 
     Logger.log(err);
 
-    return ContentService.createTextOutput(
-      "Error : " + err.message
-    );
-
-  } finally {
-
-    try {
-      lock.releaseLock();
-    } catch(err){}
+    return ContentService.createTextOutput("Error : " + err.message);
 
   }
+  finally{
+
+    try{
+      lock.releaseLock();
+    }
+    catch(err){}
+
+  }
+
 }
 
 
-//----------------------------------------------------
-// Duplicate Check
-//----------------------------------------------------
 
-function isAlreadyMarked(sheet, uid, today) {
+//--------------------------------------------------
+// Duplicate Check
+//--------------------------------------------------
+
+function isAlreadyMarked(sheet, uid, today){
 
   var lastRow = sheet.getLastRow();
 
-  if (lastRow < 2)
+  if(lastRow < 2)
     return false;
 
-  var values = sheet
-      .getRange(2,1,lastRow-1,5)
-      .getValues();
+  var values = sheet.getRange(2,1,lastRow-1,7).getValues();
 
   for(var i=0;i<values.length;i++){
 
-      var rowDate = values[i][0];
-      var rowUID = normalizeUID(values[i][4]);
+    var rowDate = values[i][0];
+    var rowUID = normalizeUID(values[i][4]);
 
-      if(rowDate instanceof Date){
+    var compareDate;
 
-          rowDate = Utilities.formatDate(
-              rowDate,
-              Session.getScriptTimeZone(),
-              "yyyy-MM-dd"
-          );
+    if(rowDate instanceof Date){
 
-      }else{
+      compareDate = Utilities.formatDate(
+        rowDate,
+        Session.getScriptTimeZone(),
+        "yyyy-MM-dd"
+      );
 
-          rowDate = String(rowDate).trim();
+    }
+    else{
 
-      }
+      compareDate = String(rowDate).trim();
 
-      if(rowUID === uid && rowDate === today){
+    }
 
-          return true;
+    if(compareDate == today && rowUID == uid){
 
-      }
+      return true;
+
+    }
 
   }
 
@@ -141,14 +148,25 @@ function isAlreadyMarked(sheet, uid, today) {
 }
 
 
-//----------------------------------------------------
-// Normalize UID
-//----------------------------------------------------
+
+//--------------------------------------------------
+// UID Normalization
+//--------------------------------------------------
 
 function normalizeUID(uid){
 
-  return String(uid)
-      .replace(/[^A-Fa-f0-9]/g,"")
-      .toUpperCase();
+  uid = String(uid)
+          .replace(/'/g,"")
+          .replace(/[^A-Fa-f0-9]/g,"")
+          .toUpperCase()
+          .trim();
+
+  while(uid.length < 8){
+
+    uid = "0" + uid;
+
+  }
+
+  return uid;
 
 }
