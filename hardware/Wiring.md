@@ -1,72 +1,74 @@
-# Hardware Connections
+# 🔌 Hardware Connections
 
-This document describes the wiring connections between the ESP32 DevKit V1 and the peripherals used in the RFID Smart Attendance Management System.
+This document describes the wiring connections between the **NodeMCU ESP8266** and the peripherals used in the RFID Smart Attendance Management System.
 
 ---
 
-# ESP32 Pinout Overview
+# NodeMCU Pinout Overview
 
 | Peripheral | Interface |
 |------------|-----------|
 | MFRC522 RFID Reader | SPI |
-| LCD Display (16×2) | I2C |
+| 16×2 LCD Display | I2C |
 | Buzzer | Digital Output |
 
 ---
 
-# RC522 RFID Reader Connections (SPI)
+# MFRC522 RFID Reader Connections (SPI)
 
-| RC522 Pin | ESP32 Pin | Description |
-|-----------|-----------|-------------|
-| SDA (SS) | GPIO 5 | SPI Chip Select |
-| SCK | GPIO 18 | SPI Clock |
-| MOSI | GPIO 23 | Master Out Slave In |
-| MISO | GPIO 19 | Master In Slave Out |
-| RST | GPIO 27 | RFID Reset |
-| 3.3V | 3.3V | Power Supply |
+| MFRC522 Pin | NodeMCU Pin | Description |
+|-------------|-------------|-------------|
+| SDA (SS) | D4 (GPIO2) | SPI Chip Select |
+| SCK | D5 (GPIO14) | SPI Clock |
+| MOSI | D7 (GPIO13) | Master Out Slave In |
+| MISO | D6 (GPIO12) | Master In Slave Out |
+| RST | D3 (GPIO0) | RFID Reset |
+| VCC | 3.3V | Power Supply |
 | GND | GND | Ground |
 
-> **Note:** The MFRC522 module must be powered using **3.3V**. Supplying **5V** may permanently damage the module.
+> **Important:** The MFRC522 module must be powered using **3.3V only**. Connecting it to **5V** may permanently damage the module.
 
 ---
 
 # 16×2 LCD Display (I2C)
 
-| LCD Pin | ESP32 Pin | Description |
-|----------|-----------|-------------|
-| SDA | GPIO 21 | I2C Data |
-| SCL | GPIO 22 | I2C Clock |
+| LCD Pin | NodeMCU Pin | Description |
+|----------|-------------|-------------|
+| SDA | D2 (GPIO4) | I2C Data |
+| SCL | D1 (GPIO5) | I2C Clock |
 | VCC | VIN (5V) | Power Supply |
 | GND | GND | Ground |
 
-> **Default I2C Address:** `0x27`
+**Default I2C Address:** `0x27`
+
+> Some LCD I2C modules use the address `0x3F`. If the display is not detected, scan the I2C bus to determine the correct address.
 
 ---
 
-# Buzzer
+# Buzzer Connections
 
-| Buzzer Pin | ESP32 Pin | Description |
-|------------|-----------|-------------|
-| Positive (+) | GPIO 4 | Digital Output |
+| Buzzer Pin | NodeMCU Pin | Description |
+|------------|-------------|-------------|
+| Positive (+) | D8 (GPIO15) | Digital Output |
 | Negative (-) | GND | Ground |
 
 ---
 
 # Communication Interfaces
 
-| Interface | Used By | ESP32 Pins |
-|------------|----------|------------|
-| SPI | MFRC522 RFID Reader | GPIO 5, 18, 19, 23, 27 |
-| I2C | LCD Display | GPIO 21, 22 |
-| GPIO | Buzzer | GPIO 4 |
+| Interface | Peripheral | NodeMCU Pins |
+|------------|------------|--------------|
+| SPI | MFRC522 RFID Reader | D3, D4, D5, D6, D7 |
+| I2C | 16×2 LCD Display | D1, D2 |
+| GPIO | Buzzer | D8 |
 
 ---
 
 # Wiring Notes
 
-- Connect **all GND pins** together.
-- Ensure the ESP32 receives a stable **5V USB supply**.
-- Use short jumper wires to reduce signal interference.
+- Connect **all GND pins together**.
+- Power the NodeMCU using a stable **5V USB supply**.
+- Use **short jumper wires** to minimize signal interference.
 - Verify all wiring before powering the circuit.
 - The MFRC522 communicates over the **SPI** interface, while the LCD uses **I2C**, allowing both peripherals to operate simultaneously.
 
@@ -74,10 +76,10 @@ This document describes the wiring connections between the ESP32 DevKit V1 and t
 
 # Wiring Diagram
 
-Refer to the project circuit diagram:
+Refer to the circuit diagram included in this repository:
 
 ```text
-images/Circuit_Diagram.jpeg
+images/Circuit_Diagram.png
 ```
 
-or view it directly from the repository.
+Alternatively, open the image directly from the **images/** folder in the repository.

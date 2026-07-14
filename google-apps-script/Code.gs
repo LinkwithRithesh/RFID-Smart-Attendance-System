@@ -1,7 +1,7 @@
 /**
  * RFID Smart Attendance Management System
  * ---------------------------------------
- * Receives attendance data from ESP32 via HTTP GET request
+ * Receives attendance data from ESP8266 via HTTP GET request
  * Checks for duplicate attendance
  * Stores attendance records in Google Sheets
  *

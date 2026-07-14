@@ -1,26 +1,28 @@
 /*
- * RFID-Based Smart Attendance Management System
+ * RFID-Based Smart Attendance Management System (Reliability-Hardened)
  *
  * Author      : Ritheshwaran A
- * Platform    : ESP32 DevKit V1
+ * Platform    : ESP8266 (NodeMCU)
  * RFID Module : MFRC522
  * Display     : 16x2 LCD (I2C)
  * Cloud       : Google Sheets via Google Apps Script
  *
- * Description:
- * This project records attendance using RFID cards,
- * displays student information on an LCD, and uploads
- * attendance records to Google Sheets over Wi-Fi.
+ * Changes vs original:
+ *  - Non-blocking WiFi connect/reconnect (no more infinite/long blocking loops)
+ *  - HTTP request retries with backoff
+ *  - Fixed-size char buffers instead of String concatenation for URL building
+ *    (reduces heap fragmentation on long-running ESP8266 deployments)
+ *  - Explicit watchdog feeding around longer delays
+ *  - Device stays usable (LCD + card scan) even while WiFi is down;
+ *    failed uploads are retried automatically
+ *  - Cleaned up buzzer patterns
  */
 
-// Standard Libraries
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <WiFiClientSecure.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClientSecureBearSSL.h>
 #include <SPI.h>
 #include <Wire.h>
-
-// External Libraries
 #include <MFRC522.h>
 #include <LiquidCrystal_I2C.h>
 
@@ -28,334 +30,377 @@
 #include "config.h"
 #include "secrets.h"
 
-//---------------- Google Script ----------------//
-
+// ---------------- Google Script ----------------
+// NOTE: no trailing semicolon inside the string literal!
 String GOOGLE_SCRIPT_URL = SCRIPT_URL;
-//---------------- RC522 Pins ----------------//
 
-#define SS_PIN 5
-#define RST_PIN 27
+// ---------------- RC522 Pins ----------------
+#define SS_PIN  D4
+#define RST_PIN D3
+
+// ---------------- Buzzer ----------------
+#define BUZZER D8
 
 MFRC522 rfid(SS_PIN, RST_PIN);
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+BearSSL::WiFiClientSecure secureClient;
 
-//---------------- LCD ----------------//
+// ---------------- State ----------------
+String lastUID = "";
+unsigned long lastScan = 0;
 
-LiquidCrystal_I2C lcd(0x27,16,2);
+// WiFi connection state machine (non-blocking)
+enum WifiState { WIFI_CONNECTING, WIFI_CONNECTED_STATE, WIFI_RETRY_WAIT };
+WifiState wifiState = WIFI_CONNECTING;
+unsigned long wifiStateChangedAt = 0;
+const unsigned long WIFI_CONNECT_TIMEOUT_MS = 10000;  // give up after 10s, then wait & retry
+const unsigned long WIFI_RETRY_INTERVAL_MS  = 5000;   // wait 5s before trying again
+bool wifiEverConnected = false;
 
-//---------------- Buzzer ----------------//
-
-#define BUZZER 4
-
-//---------------- Student / Tag Database ----------------//
-// UID -> Name mapping as provided:
-// 01020304 = Blue
-// 11223344 = Green
-// 55667788 = Yellow
-// AABBCCDD = Red
-// 04112233 = NFC
-// C0FFEE99 = Key fob
-
-struct Student
-{
-  String uid;
-  String name;
-  String regno;
-  String dept;
+// Pending upload (queued if WiFi/HTTP not ready at scan time)
+struct Student {
+  const char* uid;
+  const char* name;
+  const char* regno;
+  const char* dept;
 };
 
-Student students[] =
-{
-  {"01020304","Sivadhinesh","2025105001","ECE-I"},
-  {"11223344","Ritheshwaran","2025105002","ECE-I"},
-  {"55667788","Altaf hussain","2025105003","ECE-J"},
-  {"AABBCCDD","Chandru","2025105004","ECE-J"},
-  {"04112233","Akash","2025105005","ECE-I"},
-  {"C0FFEE99","Chinmaiyi","2025105006","ECE-J"}
+Student students[] = {
+  { "63D37530", "Sivadhinesh",         "2025105001", "ECE-I" },
+  { "8970625E", "Ritheshwaran",        "2025105002", "ECE-I" },
+  { "C0FFEE99", "Chinmaiyi",           "2025105006", "ECE-J" },
+  { "29A5575E", "T N GokulaKrishnan",  "2025105519", "ECE-J" },
+  {"99D66D5E","Keshav Praveen","2025105514","ECE-I"}
 };
+const int totalStudents = sizeof(students) / sizeof(students[0]);
 
-int totalStudents =
-sizeof(students)/sizeof(students[0]);
+bool uploadPending = false;
+int pendingStudentIdx = -1;
+int uploadRetries = 0;
+const int MAX_UPLOAD_RETRIES = 3;
+unsigned long nextUploadAttemptAt = 0;
 
-//---------------- Functions ----------------//
+// ---------------- Helpers ----------------
 
-void beep(int duration)
-{
-  digitalWrite(BUZZER,HIGH);
+void beep(int duration) {
+  digitalWrite(BUZZER, HIGH);
   delay(duration);
-  digitalWrite(BUZZER,LOW);
+  digitalWrite(BUZZER, LOW);
+  yield();  // feed watchdog after any delay >= a few hundred ms
 }
 
-String getUID()
-{
-  String uid="";
-
-  for(byte i=0;i<rfid.uid.size;i++)
-  {
-    if(rfid.uid.uidByte[i]<0x10)
-      uid+="0";
-
-    uid+=String(rfid.uid.uidByte[i],HEX);
+String getUID() {
+  String uid = "";
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    if (rfid.uid.uidByte[i] < 0x10) uid += "0";
+    uid += String(rfid.uid.uidByte[i], HEX);
   }
-
   uid.toUpperCase();
-
   return uid;
 }
 
-int findStudent(String uid)
-{
-  for(int i=0;i<totalStudents;i++)
-  {
-    if(uid==students[i].uid)
-      return i;
+int findStudent(const String &uid) {
+  for (int i = 0; i < totalStudents; i++) {
+    if (uid == students[i].uid) return i;
   }
-
   return -1;
 }
 
-//---------------- Setup ----------------//
-
-void setup()
-{
-  Serial.begin(115200);
-
-  pinMode(BUZZER,OUTPUT);
-  digitalWrite(BUZZER,LOW);
-
-  lcd.init();
-  lcd.backlight();
-
+void showScanPrompt() {
   lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("RFID Attendance");
-
-  lcd.setCursor(0,1);
-  lcd.print("Connecting...");
-
-WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  while(WiFi.status()!=WL_CONNECTED)
-  {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println();
-  Serial.println("WiFi Connected");
-
-  lcd.clear();
-  lcd.print("WiFi Connected");
-
-  SPI.begin();
-
-  rfid.PCD_Init();
-
-  delay(2000);
-
-  lcd.clear();
-  lcd.print("Scan RFID Card");
-
-  beep(150);
+  lcd.print(wifiState == WIFI_CONNECTED_STATE ? "Scan RFID Card" : "Scan (Offline)");
 }
 
-//-----------------------------------------------------
-// Send Attendance to Google Sheets
-//-----------------------------------------------------
+// URL-encode a small set of characters we actually need (space) using a fixed buffer.
+// Avoids repeated String concatenation / fragmentation.
+void buildAttendanceURL(char *buf, size_t bufSize, const Student &s) {
+  // Build into buf using snprintf, then replace spaces with %20 in-place.
+  snprintf(buf, bufSize,
+           "%s?name=%s&regno=%s&uid=%s&dept=%s&status=Present",
+           SCRIPT_URL, s.name, s.regno, s.uid, s.dept);
 
-void sendAttendance(Student s)
-{
-  if (WiFi.status() != WL_CONNECTED)
-  {
-    lcd.clear();
-    lcd.print("WiFi Error");
-    return;
+  // In-place space -> %20 would grow the string, so instead do a second pass
+  // into a temp buffer only if there are spaces (names can contain spaces).
+  static char encoded[256];
+  size_t j = 0;
+  for (size_t i = 0; buf[i] != '\0' && j < sizeof(encoded) - 4; i++) {
+    if (buf[i] == ' ') {
+      encoded[j++] = '%';
+      encoded[j++] = '2';
+      encoded[j++] = '0';
+    } else {
+      encoded[j++] = buf[i];
+    }
   }
+  encoded[j] = '\0';
+  strncpy(buf, encoded, bufSize - 1);
+  buf[bufSize - 1] = '\0';
+}
 
-  String url = GOOGLE_SCRIPT_URL;
+// ---------------- WiFi (non-blocking) ----------------
 
-  url += "?name=" + s.name;
-  url += "&regno=" + s.regno;
-  url += "&uid=" + s.uid;
-  url += "&dept=" + s.dept;
-  url += "&status=Present";
+void startWifiConnect() {
+  lcd.clear();
+  lcd.print("Connecting WiFi");
+  WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  wifiState = WIFI_CONNECTING;
+  wifiStateChangedAt = millis();
+}
 
-  url.replace(" ", "%20");
+void updateWifi() {
+  switch (wifiState) {
+    case WIFI_CONNECTING:
+      if (WiFi.status() == WL_CONNECTED) {
+        wifiState = WIFI_CONNECTED_STATE;
+        wifiEverConnected = true;
+        Serial.println("\nWiFi Connected: " + WiFi.localIP().toString());
+        lcd.clear();
+        lcd.print("WiFi OK");
+        beep(80);
+        delay(200);
+        showScanPrompt();
+      } else if (millis() - wifiStateChangedAt > WIFI_CONNECT_TIMEOUT_MS) {
+        Serial.println("WiFi connect timed out, will retry");
+        wifiState = WIFI_RETRY_WAIT;
+        wifiStateChangedAt = millis();
+        showScanPrompt();  // device stays usable offline
+      }
+      break;
+
+    case WIFI_CONNECTED_STATE:
+      if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("WiFi dropped");
+        wifiState = WIFI_RETRY_WAIT;
+        wifiStateChangedAt = millis();
+        showScanPrompt();
+      }
+      break;
+
+    case WIFI_RETRY_WAIT:
+      if (millis() - wifiStateChangedAt > WIFI_RETRY_INTERVAL_MS) {
+        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+        wifiState = WIFI_CONNECTING;
+        wifiStateChangedAt = millis();
+      }
+      break;
+  }
+}
+
+// ---------------- Upload ----------------
+
+void queueUpload(int studentIdx) {
+  uploadPending = true;
+  pendingStudentIdx = studentIdx;
+  uploadRetries = 0;
+  nextUploadAttemptAt = millis();  // attempt immediately
+}
+
+// Returns true on success, false on failure (caller decides on retry)
+bool attemptUpload(const Student &s) {
+  if (wifiState != WIFI_CONNECTED_STATE) return false;
+
+  static char url[256];
+  buildAttendanceURL(url, sizeof(url), s);
 
   Serial.println(url);
 
-  WiFiClientSecure client;
-  client.setInsecure();
-
   HTTPClient http;
+  http.setTimeout(4000);
+  secureClient.setInsecure();
+  secureClient.stop();
 
-  http.begin(client, url);
-
+  if (!http.begin(secureClient, url)) {
+    Serial.println("http.begin failed");
+    return false;
+  }
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
   int httpCode = http.GET();
-
   Serial.print("HTTP Code : ");
   Serial.println(httpCode);
 
-  if (httpCode > 0)
-  {
-    String payload = http.getString();
+  bool success = false;
 
+  if (httpCode > 0) {
+    String payload = http.getString();
     Serial.println(payload);
 
     lcd.clear();
-
-    if (payload.indexOf("Attendance Recorded") != -1)
-    {
+    if (payload.indexOf("Attendance Recorded") != -1) {
       lcd.print("Attendance");
-      lcd.setCursor(0,1);
+      lcd.setCursor(0, 1);
       lcd.print("Recorded");
-      beep(150);
-    }
-    else if (payload.indexOf("Already Marked") != -1)
-    {
+      beep(80);
+      success = true;
+    } else if (payload.indexOf("Already Marked") != -1) {
       lcd.print("Already");
-      lcd.setCursor(0,1);
+      lcd.setCursor(0, 1);
       lcd.print("Marked");
-      beep(100);
-      delay(100);
-      beep(100);
-    }
-    else
-    {
-      lcd.print("Server Reply");
+      beep(1000);
+      delay(150);
+      beep(500);
+      success = true;  // server handled it; no need to retry
+    } else {
+      lcd.print("Server Reply?");
       Serial.println(payload);
+      success = false;
     }
-  }
-  else
-  {
+  } else {
     Serial.print("HTTP Error : ");
     Serial.println(http.errorToString(httpCode));
-
     lcd.clear();
-    lcd.print("HTTP Failed");
-    lcd.setCursor(0,1);
+    lcd.print("Upload Failed");
+    lcd.setCursor(0, 1);
     lcd.print(httpCode);
-
-    beep(500);
+    beep(400);
   }
 
   http.end();
-
-  delay(2000);
-
-  lcd.clear();
-  lcd.print("Scan RFID Card");
+  return success;
 }
 
-//-----------------------------------------------------
-// Read RFID Card
-//-----------------------------------------------------
+void updatePendingUpload() {
+  if (!uploadPending) return;
+  if (millis() < nextUploadAttemptAt) return;
 
-void readRFID()
-{
-    if(!rfid.PICC_IsNewCardPresent())
-        return;
-
-    if(!rfid.PICC_ReadCardSerial())
-        return;
-
-    String uid=getUID();
-
-    Serial.print("UID : ");
-    Serial.println(uid);
-
-    int student=findStudent(uid);
-
-    if(student==-1)
-    {
-        lcd.clear();
-
-        lcd.print("Invalid Card");
-
-        lcd.setCursor(0,1);
-
-        lcd.print(uid);
-
-        beep(700);
-
-        delay(2000);
-
-        lcd.clear();
-
-        lcd.print("Scan RFID Card");
-
-        rfid.PICC_HaltA();
-
-        return;
-    }
-
-    lcd.clear();
-
-    lcd.print("Welcome");
-
-    lcd.setCursor(0,1);
-
-    lcd.print(students[student].name);
-
-    delay(1000);
-
-    sendAttendance(students[student]);
-
-    rfid.PICC_HaltA();
-}
-
-//-----------------------------------------------------
-// Loop
-//-----------------------------------------------------
-
-void loop()
-{
-  // Reconnect WiFi if disconnected
-  if (WiFi.status() != WL_CONNECTED)
-  {
-    lcd.clear();
-    lcd.print("Reconnecting");
-
-    WiFi.disconnect();
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    unsigned long startTime = millis();
-
-    while (WiFi.status() != WL_CONNECTED &&
-           millis() - startTime < 10000)
-    {
-      delay(500);
-      Serial.print(".");
-    }
-
-    if (WiFi.status() == WL_CONNECTED)
-    {
-      Serial.println("\nWiFi Reconnected");
-
-      lcd.clear();
-      lcd.print("WiFi OK");
-
-      beep(100);
-
-      delay(1000);
-
-      lcd.clear();
-      lcd.print("Scan RFID Card");
-    }
-    else
-    {
-      Serial.println("\nWiFi Failed");
-
-      lcd.clear();
-      lcd.print("WiFi Failed");
-
-      delay(2000);
-
-      return;
-    }
+  if (wifiState != WIFI_CONNECTED_STATE) {
+    // Keep waiting for WiFi to come back; don't burn retries while offline.
+    nextUploadAttemptAt = millis() + 1000;
+    return;
   }
 
+  const Student &s = students[pendingStudentIdx];
+  bool ok = attemptUpload(s);
+
+  if (ok) {
+    uploadPending = false;
+    pendingStudentIdx = -1;
+    delay(200);
+    showScanPrompt();
+    return;
+  }
+
+  uploadRetries++;
+  if (uploadRetries >= MAX_UPLOAD_RETRIES) {
+    Serial.println("Giving up on this upload after max retries");
+    lcd.clear();
+    lcd.print("Upload Failed");
+    lcd.setCursor(0, 1);
+    lcd.print("Try scan again");
+    beep(500);
+    delay(1500);
+    uploadPending = false;
+    pendingStudentIdx = -1;
+    showScanPrompt();
+    return;
+  }
+
+  // Exponential-ish backoff: 1s, 2s, 4s...
+  unsigned long backoff = 1000UL << (uploadRetries - 1);
+  nextUploadAttemptAt = millis() + backoff;
+  Serial.printf("Retry %d/%d in %lums\n", uploadRetries, MAX_UPLOAD_RETRIES, backoff);
+}
+
+// ---------------- RFID ----------------
+
+void readRFID() {
+  if (!rfid.PICC_IsNewCardPresent()) return;
+  if (!rfid.PICC_ReadCardSerial()) return;
+
+  String uid = getUID();
+
+  if (uid == lastUID && millis() - lastScan < 3000) {
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  lastUID = uid;
+  lastScan = millis();
+  Serial.print("UID : ");
+  Serial.println(uid);
+
+  int student = findStudent(uid);
+
+  if (student == -1) {
+    lcd.clear();
+    lcd.print("Invalid Card");
+    lcd.setCursor(0, 1);
+    lcd.print(uid);
+    beep(700);
+    delay(1500);
+    yield();
+    showScanPrompt();
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+    return;
+  }
+
+  lcd.clear();
+  lcd.print("Welcome");
+  String name = students[student].name;
+
+if (name.length() <= 16)
+{
+    lcd.setCursor(0,1);
+    lcd.print(name);
+    delay(300);
+}
+else
+{
+    for (int i = 0; i <= name.length() - 16; i++)
+    {
+        lcd.setCursor(0,1);
+        lcd.print("                "); // Clear line
+        lcd.setCursor(0,1);
+        lcd.print(name.substring(i, i + 16));
+        delay(250);
+    }
+}
+  beep(60);
+  delay(2000);
+  yield();
+
+  lcd.clear();
+  lcd.print(wifiState == WIFI_CONNECTED_STATE ? "Uploading..." : "Queued (No WiFi)");
+
+  queueUpload(student);
+
+  rfid.PICC_HaltA();
+  rfid.PCD_StopCrypto1();
+}
+
+// ---------------- Setup / Loop ----------------
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(BUZZER, OUTPUT);
+  digitalWrite(BUZZER, LOW);
+
+  Wire.begin(D2, D1);
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("RFID Attendance");
+  lcd.setCursor(0, 1);
+  lcd.print("Starting...");
+  delay(100);
+  SPI.begin();
+  rfid.PCD_Init();
+
+  startWifiConnect();
+}
+
+void loop() {
+  updateWifi();
+  updatePendingUpload();
   readRFID();
 
-  delay(100);
+  yield();
+  delay(20);
 }
