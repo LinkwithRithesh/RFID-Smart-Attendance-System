@@ -1,0 +1,456 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Smart Campus Attendance Management System API",
+    "version": "1.0.0",
+    "description": "REST API for the AI-Based Smart Campus Attendance Management System. Two authentication mechanisms are used: JWT bearer tokens for human users (students, faculty, staff, admins) and API-key headers for ESP32 attendance terminals, which are not Users and don't log in."
+  },
+  "servers": [{ "url": "/api/v1" }],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" },
+      "deviceCode": { "type": "apiKey", "in": "header", "name": "x-device-code" },
+      "deviceApiKey": { "type": "apiKey", "in": "header", "name": "x-device-api-key" }
+    },
+    "schemas": {
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {},
+          "error": {}
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": ["refreshToken"],
+        "properties": { "refreshToken": { "type": "string" } }
+      },
+      "BaseUserFields": {
+        "type": "object",
+        "required": ["fullName", "email", "password", "role", "profile"],
+        "properties": {
+          "fullName": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "minLength": 8 },
+          "departmentId": { "type": "integer" },
+          "rfidCardId": { "type": "string" }
+        }
+      },
+      "CreateUserRequest": {
+        "description": "Body shape depends on `role` — each role has its own required `profile` fields (zod discriminated union). Examples show STUDENT and SECURITY; the other 8 roles (FACULTY, HOD, DEAN, ADMINISTRATOR, OFFICE_STAFF, LAB_ASSISTANT, HOUSEKEEPING, MAINTENANCE) follow the same pattern with their own profile shape — see src/validations/user.validation.js for the exact per-role fields.",
+        "oneOf": [
+          {
+            "allOf": [
+              { "$ref": "#/components/schemas/BaseUserFields" },
+              {
+                "type": "object",
+                "properties": {
+                  "role": { "type": "string", "enum": ["STUDENT"] },
+                  "profile": {
+                    "type": "object",
+                    "required": ["rollNumber", "courseId", "currentSemester", "admissionYear"],
+                    "properties": {
+                      "rollNumber": { "type": "string" },
+                      "courseId": { "type": "integer" },
+                      "currentSemester": { "type": "integer" },
+                      "admissionYear": { "type": "integer" }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "allOf": [
+              { "$ref": "#/components/schemas/BaseUserFields" },
+              {
+                "type": "object",
+                "properties": {
+                  "role": { "type": "string", "enum": ["SECURITY"] },
+                  "profile": {
+                    "type": "object",
+                    "required": ["employeeId"],
+                    "properties": {
+                      "employeeId": { "type": "string" },
+                      "shift": { "type": "string" },
+                      "postLocation": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "properties": {
+          "fullName": { "type": "string" },
+          "departmentId": { "type": "integer", "nullable": true },
+          "rfidCardId": { "type": "string", "nullable": true },
+          "isActive": { "type": "boolean" }
+        }
+      },
+      "CreateDeviceRequest": {
+        "type": "object",
+        "required": ["deviceCode", "departmentId"],
+        "properties": {
+          "deviceCode": { "type": "string" },
+          "location": { "type": "string" },
+          "departmentId": { "type": "integer" },
+          "firmwareVersion": { "type": "string" }
+        }
+      },
+      "MarkAttendanceRequest": {
+        "type": "object",
+        "required": ["rfidCardId"],
+        "properties": { "rfidCardId": { "type": "string" } }
+      },
+      "SyncRecordsRequest": {
+        "type": "object",
+        "required": ["records"],
+        "properties": {
+          "records": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "type": "object",
+              "required": ["rfidCardId", "markedAt"],
+              "properties": {
+                "rfidCardId": { "type": "string" },
+                "markedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      },
+      "ManualAttendanceRequest": {
+        "type": "object",
+        "required": ["sessionId", "userId", "status"],
+        "properties": {
+          "sessionId": { "type": "integer" },
+          "userId": { "type": "integer" },
+          "status": { "type": "string", "enum": ["PRESENT", "LATE", "ABSENT"] }
+        }
+      },
+      "CreateTimetableRequest": {
+        "type": "object",
+        "required": ["subjectId", "facultyId", "departmentId", "dayOfWeek", "startTime", "endTime", "semester", "academicYear"],
+        "properties": {
+          "subjectId": { "type": "integer" },
+          "facultyId": { "type": "integer" },
+          "departmentId": { "type": "integer" },
+          "roomNumber": { "type": "string" },
+          "dayOfWeek": { "type": "string", "enum": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] },
+          "startTime": { "type": "string", "example": "09:00" },
+          "endTime": { "type": "string", "example": "10:00" },
+          "semester": { "type": "integer" },
+          "academicYear": { "type": "string", "example": "2025-2026" }
+        }
+      },
+      "OpenManualSessionRequest": {
+        "type": "object",
+        "required": ["departmentId"],
+        "properties": {
+          "departmentId": { "type": "integer" },
+          "subjectId": { "type": "integer" },
+          "facultyId": { "type": "integer" },
+          "durationMinutes": { "type": "integer", "maximum": 480 },
+          "isEmergency": { "type": "boolean", "description": "Grants EMERGENCY-level priority regardless of the caller's own role rank." }
+        }
+      },
+      "LowAttendanceAlertRequest": {
+        "type": "object",
+        "required": ["departmentId", "from", "to"],
+        "properties": {
+          "departmentId": { "type": "integer" },
+          "from": { "type": "string", "format": "date-time" },
+          "to": { "type": "string", "format": "date-time" },
+          "role": { "type": "string" },
+          "threshold": { "type": "number", "minimum": 0, "maximum": 100 }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"], "summary": "Login, issue access + refresh tokens",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } } },
+        "responses": { "200": { "description": "OK" }, "401": { "description": "Invalid credentials" } }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": ["Auth"], "summary": "Rotate access/refresh tokens",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RefreshRequest" } } } },
+        "responses": { "200": { "description": "OK" }, "401": { "description": "Invalid or reused refresh token" } }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Auth"], "summary": "Invalidate the stored refresh token",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Auth"], "summary": "Current authenticated user",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/users": {
+      "post": {
+        "tags": ["Users"], "summary": "Create a user (admin-provisioned, role-specific profile)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateUserRequest" } } } },
+        "responses": { "201": { "description": "Created" }, "409": { "description": "Email already exists" } }
+      },
+      "get": {
+        "tags": ["Users"], "summary": "List users (paginated, filterable)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } },
+          { "name": "role", "in": "query", "schema": { "type": "string" } },
+          { "name": "departmentId", "in": "query", "schema": { "type": "integer" } },
+          { "name": "isActive", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": ["Users"], "summary": "Get a user with their role profile", "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } }
+      },
+      "patch": {
+        "tags": ["Users"], "summary": "Update name/department/RFID/active status", "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateUserRequest" } } } },
+        "responses": { "200": { "description": "OK" }, "404": { "description": "Not found" } }
+      },
+      "delete": {
+        "tags": ["Users"], "summary": "Deactivate a user (soft delete — preserves attendance history)", "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "OK" }, "409": { "description": "Already deactivated" } }
+      }
+    },
+    "/roles": {
+      "get": { "tags": ["Roles"], "summary": "List the 10 fixed roles", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } }
+    },
+    "/roles/permissions": {
+      "get": { "tags": ["Roles"], "summary": "List permissions", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } },
+      "post": {
+        "tags": ["Roles"], "summary": "Create a permission", "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "description": { "type": "string" } } } } } },
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/roles/{roleId}/permissions": {
+      "get": {
+        "tags": ["Roles"], "summary": "List permissions assigned to a role", "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "roleId", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "OK" }, "404": { "description": "Role not found" } }
+      },
+      "post": {
+        "tags": ["Roles"], "summary": "Assign a permission to a role", "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "roleId", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["permissionId"], "properties": { "permissionId": { "type": "integer" } } } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/roles/{roleId}/permissions/{permissionId}": {
+      "delete": {
+        "tags": ["Roles"], "summary": "Revoke a permission from a role", "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "roleId", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "permissionId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/devices/heartbeat": {
+      "post": {
+        "tags": ["Devices"], "summary": "Device heartbeat (device-authenticated, not a user)",
+        "security": [{ "deviceCode": [], "deviceApiKey": [] }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "firmwareVersion": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK" }, "401": { "description": "Invalid device credentials" }, "403": { "description": "Decommissioned" } }
+      }
+    },
+    "/devices": {
+      "post": {
+        "tags": ["Devices"], "summary": "Register a device — returns the plaintext API key exactly once", "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateDeviceRequest" } } } },
+        "responses": { "201": { "description": "Created" }, "409": { "description": "Device code already exists" } }
+      },
+      "get": { "tags": ["Devices"], "summary": "List devices (with live isOnline field)", "security": [{ "bearerAuth": [] }], "responses": { "200": { "description": "OK" } } }
+    },
+    "/devices/{id}": {
+      "get": { "tags": ["Devices"], "summary": "Get a device", "security": [{ "bearerAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "OK" } } },
+      "patch": { "tags": ["Devices"], "summary": "Update location/department/firmware/status", "security": [{ "bearerAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "OK" } } },
+      "delete": { "tags": ["Devices"], "summary": "Decommission a device (soft)", "security": [{ "bearerAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "OK" } } }
+    },
+    "/devices/{id}/rotate-key": {
+      "post": {
+        "tags": ["Devices"], "summary": "Rotate a device's API key", "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "OK — returns new plaintext key" }, "409": { "description": "Device decommissioned" } }
+      }
+    },
+    "/attendance/mark": {
+      "post": {
+        "tags": ["Attendance"], "summary": "RFID swipe at a terminal (face match already confirmed on-device)",
+        "security": [{ "deviceCode": [], "deviceApiKey": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MarkAttendanceRequest" } } } },
+        "responses": { "201": { "description": "Marked" }, "400": { "description": "Invalid/inactive RFID" }, "404": { "description": "No open window" }, "409": { "description": "Already marked" } }
+      }
+    },
+    "/attendance/sync": {
+      "post": {
+        "tags": ["Attendance"], "summary": "Batch upload of records cached while offline",
+        "security": [{ "deviceCode": [], "deviceApiKey": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SyncRecordsRequest" } } } },
+        "responses": { "200": { "description": "Per-record results with partial success" } }
+      }
+    },
+    "/attendance/manual": {
+      "post": {
+        "tags": ["Attendance"], "summary": "Manual override marking (Faculty/HOD/Dean/Admin)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ManualAttendanceRequest" } } } },
+        "responses": { "201": { "description": "Marked" }, "409": { "description": "Already marked" } }
+      }
+    },
+    "/attendance/sessions/{sessionId}": {
+      "get": {
+        "tags": ["Attendance"], "summary": "Roster for a session", "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "sessionId", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "OK" }, "404": { "description": "Session not found" } }
+      }
+    },
+    "/timetable": {
+      "post": {
+        "tags": ["Timetable"], "summary": "Create a timetable slot", "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateTimetableRequest" } } } },
+        "responses": { "201": { "description": "Created" }, "400": { "description": "startTime must be before endTime" } }
+      },
+      "get": {
+        "tags": ["Timetable"], "summary": "List timetable slots", "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "departmentId", "in": "query", "schema": { "type": "integer" } },
+          { "name": "facultyId", "in": "query", "schema": { "type": "integer" } },
+          { "name": "dayOfWeek", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/timetable/{id}": {
+      "get": { "tags": ["Timetable"], "summary": "Get a slot", "security": [{ "bearerAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "OK" } } },
+      "patch": { "tags": ["Timetable"], "summary": "Update a slot", "security": [{ "bearerAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "OK" } } },
+      "delete": { "tags": ["Timetable"], "summary": "Delete a slot", "security": [{ "bearerAuth": [] }], "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }], "responses": { "200": { "description": "OK" } } }
+    },
+    "/attendance-sessions/manual-open": {
+      "post": {
+        "tags": ["Attendance Sessions"], "summary": "Manual override open (HOD/Dean/Admin, rank-checked: Emergency > Dean > Admin > HOD)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OpenManualSessionRequest" } } } },
+        "responses": { "201": { "description": "Opened" }, "409": { "description": "Equal/higher priority session already active" } }
+      }
+    },
+    "/attendance-sessions/{id}/close": {
+      "post": {
+        "tags": ["Attendance Sessions"], "summary": "Manual close (rank-checked)", "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Closed" }, "403": { "description": "Insufficient priority" } }
+      }
+    },
+    "/analytics/user/{userId}": {
+      "get": {
+        "tags": ["Analytics"], "summary": "One user's attendance percentage (role-scoped denominator)", "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "userId", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "from", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "to", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/analytics/department/{departmentId}": {
+      "get": {
+        "tags": ["Analytics"], "summary": "Per-user breakdown + department average", "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "departmentId", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "from", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "to", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "role", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/analytics/department/{departmentId}/low-attendance": {
+      "get": {
+        "tags": ["Analytics"], "summary": "Users below a threshold (default 75%)", "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "departmentId", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "from", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "to", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "role", "in": "query", "schema": { "type": "string" } },
+          { "name": "threshold", "in": "query", "schema": { "type": "number" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/reports/department/{departmentId}": {
+      "get": {
+        "tags": ["Reports"], "summary": "Downloadable department report (PDF or Excel), streamed", "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "departmentId", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "from", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "to", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "format", "in": "query", "required": true, "schema": { "type": "string", "enum": ["pdf", "excel"] } },
+          { "name": "role", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Binary file stream (application/pdf or .xlsx)" } }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "tags": ["Notifications"], "summary": "List my notifications", "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } },
+          { "name": "unreadOnly", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/notifications/{id}/read": {
+      "patch": {
+        "tags": ["Notifications"], "summary": "Mark my own notification as read", "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "OK" }, "404": { "description": "Not found / not yours" } }
+      }
+    },
+    "/notifications/low-attendance-alerts": {
+      "post": {
+        "tags": ["Notifications"], "summary": "Trigger low-attendance alerts for a department (HOD/Dean/Admin)", "security": [{ "bearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LowAttendanceAlertRequest" } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    }
+  }
+}

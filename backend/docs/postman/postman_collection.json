@@ -1,0 +1,1463 @@
+{
+  "info": {
+    "name": "Smart Campus Attendance Management System API",
+    "description": "REST API for the AI-Based Smart Campus Attendance Management System. Two authentication mechanisms are used: JWT bearer tokens for human users (students, faculty, staff, admins) and API-key headers for ESP32 attendance terminals, which are not Users and don't log in.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api/v1"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "deviceCode",
+      "value": ""
+    },
+    {
+      "key": "deviceApiKey",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST /auth/login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@campus.edu\",\n  \"password\": \"sample_password\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Login, issue access + refresh tokens"
+          }
+        },
+        {
+          "name": "POST /auth/refresh",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"sample_refreshToken\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ],
+              "query": []
+            },
+            "description": "Rotate access/refresh tokens"
+          }
+        },
+        {
+          "name": "POST /auth/logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ],
+              "query": []
+            },
+            "description": "Invalidate the stored refresh token"
+          }
+        },
+        {
+          "name": "GET /auth/me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ],
+              "query": []
+            },
+            "description": "Current authenticated user"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "POST /users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"sample_fullName\",\n  \"email\": \"user@campus.edu\",\n  \"password\": \"sample_password\",\n  \"departmentId\": 1,\n  \"rfidCardId\": \"sample_rfidCardId\",\n  \"role\": \"STUDENT\",\n  \"profile\": {\n    \"rollNumber\": \"sample_rollNumber\",\n    \"courseId\": 1,\n    \"currentSemester\": 1,\n    \"admissionYear\": 1\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": []
+            },
+            "description": "Create a user (admin-provisioned, role-specific profile)"
+          }
+        },
+        {
+          "name": "GET /users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users?page=&limit=&role=&departmentId=&isActive=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "role",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "departmentId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "isActive",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List users (paginated, filterable)"
+          }
+        },
+        {
+          "name": "GET /users/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{id}"
+              ],
+              "query": []
+            },
+            "description": "Get a user with their role profile"
+          }
+        },
+        {
+          "name": "PATCH /users/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"sample_fullName\",\n  \"departmentId\": 1,\n  \"rfidCardId\": \"sample_rfidCardId\",\n  \"isActive\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{id}"
+              ],
+              "query": []
+            },
+            "description": "Update name/department/RFID/active status"
+          }
+        },
+        {
+          "name": "DELETE /users/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{id}"
+              ],
+              "query": []
+            },
+            "description": "Deactivate a user (soft delete — preserves attendance history)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "GET /roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "roles"
+              ],
+              "query": []
+            },
+            "description": "List the 10 fixed roles"
+          }
+        },
+        {
+          "name": "GET /roles/permissions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/roles/permissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "roles",
+                "permissions"
+              ],
+              "query": []
+            },
+            "description": "List permissions"
+          }
+        },
+        {
+          "name": "POST /roles/permissions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"sample_name\",\n  \"description\": \"sample_description\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/roles/permissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "roles",
+                "permissions"
+              ],
+              "query": []
+            },
+            "description": "Create a permission"
+          }
+        },
+        {
+          "name": "GET /roles/{roleId}/permissions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/roles/{roleId}/permissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "roles",
+                "{roleId}",
+                "permissions"
+              ],
+              "query": []
+            },
+            "description": "List permissions assigned to a role"
+          }
+        },
+        {
+          "name": "POST /roles/{roleId}/permissions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissionId\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/roles/{roleId}/permissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "roles",
+                "{roleId}",
+                "permissions"
+              ],
+              "query": []
+            },
+            "description": "Assign a permission to a role"
+          }
+        },
+        {
+          "name": "DELETE /roles/{roleId}/permissions/{permissionId}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/roles/{roleId}/permissions/{permissionId}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "roles",
+                "{roleId}",
+                "permissions",
+                "{permissionId}"
+              ],
+              "query": []
+            },
+            "description": "Revoke a permission from a role"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Devices",
+      "item": [
+        {
+          "name": "POST /devices/heartbeat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-device-code",
+                "value": "{{deviceCode}}"
+              },
+              {
+                "key": "x-device-api-key",
+                "value": "{{deviceApiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firmwareVersion\": \"sample_firmwareVersion\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/heartbeat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "heartbeat"
+              ],
+              "query": []
+            },
+            "description": "Device heartbeat (device-authenticated, not a user)"
+          }
+        },
+        {
+          "name": "POST /devices",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceCode\": \"sample_deviceCode\",\n  \"location\": \"sample_location\",\n  \"departmentId\": 1,\n  \"firmwareVersion\": \"sample_firmwareVersion\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ],
+              "query": []
+            },
+            "description": "Register a device — returns the plaintext API key exactly once"
+          }
+        },
+        {
+          "name": "GET /devices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ],
+              "query": []
+            },
+            "description": "List devices (with live isOnline field)"
+          }
+        },
+        {
+          "name": "GET /devices/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/devices/{id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{id}"
+              ],
+              "query": []
+            },
+            "description": "Get a device"
+          }
+        },
+        {
+          "name": "PATCH /devices/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/devices/{id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{id}"
+              ],
+              "query": []
+            },
+            "description": "Update location/department/firmware/status"
+          }
+        },
+        {
+          "name": "DELETE /devices/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/devices/{id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{id}"
+              ],
+              "query": []
+            },
+            "description": "Decommission a device (soft)"
+          }
+        },
+        {
+          "name": "POST /devices/{id}/rotate-key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/devices/{id}/rotate-key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{id}",
+                "rotate-key"
+              ],
+              "query": []
+            },
+            "description": "Rotate a device's API key"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance",
+      "item": [
+        {
+          "name": "POST /attendance/mark",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-device-code",
+                "value": "{{deviceCode}}"
+              },
+              {
+                "key": "x-device-api-key",
+                "value": "{{deviceApiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rfidCardId\": \"sample_rfidCardId\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/attendance/mark",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attendance",
+                "mark"
+              ],
+              "query": []
+            },
+            "description": "RFID swipe at a terminal (face match already confirmed on-device)"
+          }
+        },
+        {
+          "name": "POST /attendance/sync",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-device-code",
+                "value": "{{deviceCode}}"
+              },
+              {
+                "key": "x-device-api-key",
+                "value": "{{deviceApiKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"records\": [\n    {\n      \"rfidCardId\": \"sample_rfidCardId\",\n      \"markedAt\": \"2026-07-01T00:00:00.000Z\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/attendance/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attendance",
+                "sync"
+              ],
+              "query": []
+            },
+            "description": "Batch upload of records cached while offline"
+          }
+        },
+        {
+          "name": "POST /attendance/manual",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": 1,\n  \"userId\": 1,\n  \"status\": \"PRESENT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/attendance/manual",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attendance",
+                "manual"
+              ],
+              "query": []
+            },
+            "description": "Manual override marking (Faculty/HOD/Dean/Admin)"
+          }
+        },
+        {
+          "name": "GET /attendance/sessions/{sessionId}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attendance/sessions/{sessionId}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attendance",
+                "sessions",
+                "{sessionId}"
+              ],
+              "query": []
+            },
+            "description": "Roster for a session"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Timetable",
+      "item": [
+        {
+          "name": "POST /timetable",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subjectId\": 1,\n  \"facultyId\": 1,\n  \"departmentId\": 1,\n  \"roomNumber\": \"sample_roomNumber\",\n  \"dayOfWeek\": \"MON\",\n  \"startTime\": \"09:00\",\n  \"endTime\": \"10:00\",\n  \"semester\": 1,\n  \"academicYear\": \"2025-2026\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/timetable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "timetable"
+              ],
+              "query": []
+            },
+            "description": "Create a timetable slot"
+          }
+        },
+        {
+          "name": "GET /timetable",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/timetable?departmentId=&facultyId=&dayOfWeek=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "timetable"
+              ],
+              "query": [
+                {
+                  "key": "departmentId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "facultyId",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "dayOfWeek",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List timetable slots"
+          }
+        },
+        {
+          "name": "GET /timetable/{id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/timetable/{id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "timetable",
+                "{id}"
+              ],
+              "query": []
+            },
+            "description": "Get a slot"
+          }
+        },
+        {
+          "name": "PATCH /timetable/{id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/timetable/{id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "timetable",
+                "{id}"
+              ],
+              "query": []
+            },
+            "description": "Update a slot"
+          }
+        },
+        {
+          "name": "DELETE /timetable/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/timetable/{id}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "timetable",
+                "{id}"
+              ],
+              "query": []
+            },
+            "description": "Delete a slot"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance Sessions",
+      "item": [
+        {
+          "name": "POST /attendance-sessions/manual-open",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"departmentId\": 1,\n  \"subjectId\": 1,\n  \"facultyId\": 1,\n  \"durationMinutes\": 1,\n  \"isEmergency\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/attendance-sessions/manual-open",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attendance-sessions",
+                "manual-open"
+              ],
+              "query": []
+            },
+            "description": "Manual override open (HOD/Dean/Admin, rank-checked: Emergency > Dean > Admin > HOD)"
+          }
+        },
+        {
+          "name": "POST /attendance-sessions/{id}/close",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attendance-sessions/{id}/close",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attendance-sessions",
+                "{id}",
+                "close"
+              ],
+              "query": []
+            },
+            "description": "Manual close (rank-checked)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "GET /analytics/user/{userId}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/user/{userId}?from=&to=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "user",
+                "{userId}"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "One user's attendance percentage (role-scoped denominator)"
+          }
+        },
+        {
+          "name": "GET /analytics/department/{departmentId}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/department/{departmentId}?from=&to=&role=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "department",
+                "{departmentId}"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "role",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Per-user breakdown + department average"
+          }
+        },
+        {
+          "name": "GET /analytics/department/{departmentId}/low-attendance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/department/{departmentId}/low-attendance?from=&to=&role=&threshold=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "department",
+                "{departmentId}",
+                "low-attendance"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "role",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "threshold",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Users below a threshold (default 75%)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "GET /reports/department/{departmentId}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/department/{departmentId}?from=&to=&format=&role=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reports",
+                "department",
+                "{departmentId}"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "format",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "role",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Downloadable department report (PDF or Excel), streamed"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "GET /notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications?page=&limit=&unreadOnly=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "unreadOnly",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List my notifications"
+          }
+        },
+        {
+          "name": "PATCH /notifications/{id}/read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{id}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "{id}",
+                "read"
+              ],
+              "query": []
+            },
+            "description": "Mark my own notification as read"
+          }
+        },
+        {
+          "name": "POST /notifications/low-attendance-alerts",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"departmentId\": 1,\n  \"from\": \"2026-07-01T00:00:00.000Z\",\n  \"to\": \"2026-07-01T00:00:00.000Z\",\n  \"role\": \"sample_role\",\n  \"threshold\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/notifications/low-attendance-alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notifications",
+                "low-attendance-alerts"
+              ],
+              "query": []
+            },
+            "description": "Trigger low-attendance alerts for a department (HOD/Dean/Admin)"
+          }
+        }
+      ]
+    }
+  ]
+}

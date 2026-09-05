@@ -1,0 +1,542 @@
+// Smart Campus Attendance Management System
+// Prisma schema — Module 2
+//
+// NOTE: This schema was written by hand and mirrors prisma/schema.sql,
+// which has been executed and tested against a live MySQL 8.0 instance
+// (inserts, unique constraints, RESTRICT/CASCADE/SET NULL behavior all
+// verified). Prisma's own CLI (generate/migrate) could not be run in this
+// sandbox because it needs to download engine binaries from
+// binaries.prisma.sh, which isn't reachable here. Run `npx prisma validate`
+// and `npx prisma migrate dev` in your own environment to confirm — if
+// anything doesn't match schema.sql exactly, trust schema.sql, since that's
+// the version that has actually been executed.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ RBAC ============
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  users           User[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       Int @map("role_id")
+  permissionId Int @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ============ ORG STRUCTURE ============
+model Department {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(100)
+  code      String   @unique @db.VarChar(20)
+  hodUserId Int?     @unique @map("hod_user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  hod                User?               @relation("DepartmentHod", fields: [hodUserId], references: [id], onDelete: SetNull)
+  users              User[]              @relation("UserDepartment")
+  courses            Course[]
+  devices            Device[]
+  timetable          Timetable[]
+  attendanceSessions AttendanceSession[]
+  hodProfiles        HodProfile[]
+
+  @@map("departments")
+}
+
+// ============ CENTRAL IDENTITY / AUTH ============
+// One row per human in the system regardless of role. Role-specific
+// attributes live in the profile tables below, not here.
+model User {
+  id                Int      @id @default(autoincrement())
+  fullName          String   @map("full_name") @db.VarChar(150)
+  email             String   @unique @db.VarChar(150)
+  passwordHash      String   @map("password_hash") @db.VarChar(255)
+  roleId            Int      @map("role_id")
+  departmentId      Int?     @map("department_id")
+  rfidCardId        String?  @unique @map("rfid_card_id") @db.VarChar(100)
+  faceEmbeddingPath String?  @map("face_embedding_path") @db.VarChar(255)
+  refreshTokenHash  String?  @map("refresh_token_hash") @db.VarChar(255)
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  role       Role        @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  department Department? @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: SetNull)
+
+  headOfDepartment Department? @relation("DepartmentHod")
+
+  studentProfile       StudentProfile?
+  facultyProfile       FacultyProfile?
+  hodProfile           HodProfile?
+  deanProfile          DeanProfile?
+  administratorProfile AdministratorProfile?
+  officeStaffProfile   OfficeStaffProfile?
+  labAssistantProfile  LabAssistantProfile?
+  securityProfile      SecurityProfile?
+  housekeepingProfile  HousekeepingProfile?
+  maintenanceProfile   MaintenanceProfile?
+
+  subjectsTaught    Subject[]           @relation("SubjectFaculty")
+  timetableSlots    Timetable[]         @relation("TimetableFaculty")
+  attendanceRecords Attendance[]        @relation("AttendanceUser")
+  sessionsAsFaculty AttendanceSession[] @relation("SessionFaculty")
+  sessionsOpened    AttendanceSession[] @relation("SessionOpenedBy")
+  notifications     Notification[]
+  leaveRequests     LeaveRequest[]      @relation("LeaveRequester")
+  leaveApprovals    LeaveRequest[]      @relation("LeaveApprover")
+  auditLogs         AuditLog[]
+  announcementsIssued Announcement[]    @relation("AnnouncementIssuedBy")
+  documentsUploaded   DocumentFile[]    @relation("DocumentUploadedBy")
+
+  @@index([departmentId, isActive])
+  @@map("users")
+}
+
+// ============ ACADEMICS ============
+model Course {
+  id                Int    @id @default(autoincrement())
+  name              String @db.VarChar(150)
+  code              String @unique @db.VarChar(20)
+  departmentId      Int    @map("department_id")
+  durationSemesters Int    @map("duration_semesters") @db.TinyInt
+
+  department      Department       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  subjects        Subject[]
+  studentProfiles StudentProfile[]
+
+  @@map("courses")
+}
+
+model Subject {
+  id        Int    @id @default(autoincrement())
+  name      String @db.VarChar(150)
+  code      String @unique @db.VarChar(20)
+  courseId  Int    @map("course_id")
+  semester  Int    @db.TinyInt
+  credits   Int    @default(3) @db.TinyInt
+  facultyId Int?   @map("faculty_id")
+
+  course             Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  faculty            User?               @relation("SubjectFaculty", fields: [facultyId], references: [id], onDelete: SetNull)
+  timetableSlots     Timetable[]
+  attendanceSessions AttendanceSession[]
+
+  @@map("subjects")
+}
+
+// ============ ROLE-SPECIFIC PROFILES (one table per role) ============
+model StudentProfile {
+  userId          Int    @id @map("user_id")
+  rollNumber      String @unique @map("roll_number") @db.VarChar(30)
+  courseId        Int    @map("course_id")
+  currentSemester Int    @map("current_semester") @db.TinyInt
+  admissionYear   Int    @map("admission_year") @db.Year
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  @@map("student_profiles")
+}
+
+model FacultyProfile {
+  userId      Int       @id @map("user_id")
+  employeeId  String    @unique @map("employee_id") @db.VarChar(30)
+  designation String?   @db.VarChar(100)
+  joiningDate DateTime? @map("joining_date") @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("faculty_profiles")
+}
+
+model HodProfile {
+  userId        Int       @id @map("user_id")
+  employeeId    String    @unique @map("employee_id") @db.VarChar(30)
+  departmentId  Int       @map("department_id")
+  appointedDate DateTime? @map("appointed_date") @db.Date
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  @@map("hod_profiles")
+}
+
+model DeanProfile {
+  userId        Int       @id @map("user_id")
+  employeeId    String    @unique @map("employee_id") @db.VarChar(30)
+  appointedDate DateTime? @map("appointed_date") @db.Date
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("dean_profiles")
+}
+
+model AdministratorProfile {
+  userId     Int    @id @map("user_id")
+  employeeId String @unique @map("employee_id") @db.VarChar(30)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("administrator_profiles")
+}
+
+model OfficeStaffProfile {
+  userId       Int     @id @map("user_id")
+  employeeId   String  @unique @map("employee_id") @db.VarChar(30)
+  deskLocation String? @map("desk_location") @db.VarChar(100)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("office_staff_profiles")
+}
+
+model LabAssistantProfile {
+  userId     Int     @id @map("user_id")
+  employeeId String  @unique @map("employee_id") @db.VarChar(30)
+  labName    String? @map("lab_name") @db.VarChar(100)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("lab_assistant_profiles")
+}
+
+model SecurityProfile {
+  userId       Int     @id @map("user_id")
+  employeeId   String  @unique @map("employee_id") @db.VarChar(30)
+  shift        String? @db.VarChar(20)
+  postLocation String? @map("post_location") @db.VarChar(100)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("security_profiles")
+}
+
+model HousekeepingProfile {
+  userId     Int     @id @map("user_id")
+  employeeId String  @unique @map("employee_id") @db.VarChar(30)
+  shift      String? @db.VarChar(20)
+  zone       String? @db.VarChar(100)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("housekeeping_profiles")
+}
+
+model MaintenanceProfile {
+  userId         Int     @id @map("user_id")
+  employeeId     String  @unique @map("employee_id") @db.VarChar(30)
+  shift          String? @db.VarChar(20)
+  specialization String? @db.VarChar(100)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("maintenance_profiles")
+}
+
+// ============ DEVICES (ESP32 terminals) ============
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  DECOMMISSIONED
+}
+
+model Device {
+  id              Int          @id @default(autoincrement())
+  deviceCode      String       @unique @map("device_code") @db.VarChar(50)
+  apiKeyHash      String       @map("api_key_hash") @db.VarChar(255)
+  location        String?      @db.VarChar(150)
+  departmentId    Int          @map("department_id")
+  status          DeviceStatus @default(OFFLINE)
+  firmwareVersion String?      @map("firmware_version") @db.VarChar(20)
+  lastHeartbeatAt DateTime?    @map("last_heartbeat_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  department  Department   @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  attendances Attendance[]
+
+  @@map("devices")
+}
+
+// ============ TIMETABLE ============
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+model Timetable {
+  id           Int       @id @default(autoincrement())
+  subjectId    Int       @map("subject_id")
+  facultyId    Int       @map("faculty_id")
+  departmentId Int       @map("department_id")
+  roomNumber   String?   @map("room_number") @db.VarChar(20)
+  dayOfWeek    DayOfWeek @map("day_of_week")
+  startTime    DateTime  @map("start_time") @db.Time
+  endTime      DateTime  @map("end_time") @db.Time
+  semester     Int       @db.TinyInt
+  academicYear String    @map("academic_year") @db.VarChar(9)
+
+  subject            Subject             @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  faculty            User                @relation("TimetableFaculty", fields: [facultyId], references: [id], onDelete: Restrict)
+  department         Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  attendanceSessions AttendanceSession[]
+
+  @@index([departmentId, dayOfWeek])
+  @@map("timetable")
+}
+
+// ============ ATTENDANCE ============
+// session_type generalizes the model: CLASS sessions come from the timetable
+// engine; WORKER_SHIFT sessions cover Security/Housekeeping/Maintenance/etc.;
+// EVENT covers one-off manual sessions. This keeps a single Attendance +
+// AttendanceSessions pair for every role instead of per-role variants.
+enum SessionType {
+  CLASS
+  WORKER_SHIFT
+  EVENT
+}
+
+enum SessionStatus {
+  SCHEDULED
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum OverrideType {
+  NONE
+  EMERGENCY
+  DEAN
+  ADMIN
+  HOD
+}
+
+model AttendanceSession {
+  id           Int           @id @default(autoincrement())
+  sessionType  SessionType   @map("session_type")
+  timetableId  Int?          @map("timetable_id")
+  subjectId    Int?          @map("subject_id")
+  facultyId    Int?          @map("faculty_id")
+  departmentId Int           @map("department_id")
+  sessionDate  DateTime      @map("session_date") @db.Date
+  startTime    DateTime      @map("start_time") @db.Time
+  endTime      DateTime      @map("end_time") @db.Time
+  status       SessionStatus @default(SCHEDULED)
+  overrideType OverrideType  @default(NONE) @map("override_type")
+  openedBy     Int?          @map("opened_by")
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  timetable    Timetable?   @relation(fields: [timetableId], references: [id], onDelete: SetNull)
+  subject      Subject?     @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  faculty      User?        @relation("SessionFaculty", fields: [facultyId], references: [id], onDelete: SetNull)
+  department   Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  openedByUser User?        @relation("SessionOpenedBy", fields: [openedBy], references: [id], onDelete: SetNull)
+  attendances  Attendance[]
+
+  @@index([departmentId, status])
+  @@index([departmentId, sessionDate])
+  @@index([departmentId, sessionType, sessionDate])
+  @@index([facultyId, sessionDate])
+  @@map("attendance_sessions")
+}
+
+enum AttendanceMethod {
+  RFID_FACE
+  MANUAL
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+}
+
+model Attendance {
+  id        Int              @id @default(autoincrement())
+  sessionId Int              @map("session_id")
+  userId    Int              @map("user_id")
+  deviceId  Int?             @map("device_id")
+  method    AttendanceMethod
+  status    AttendanceStatus
+  markedAt  DateTime         @map("marked_at")
+  isSynced  Boolean          @default(true) @map("is_synced") // false = pending offline sync
+  syncedAt  DateTime?        @map("synced_at")
+
+  session AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User              @relation("AttendanceUser", fields: [userId], references: [id], onDelete: Cascade)
+  device  Device?           @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@unique([sessionId, userId], map: "uq_session_user")
+  @@index([userId, status])
+  @@map("attendance")
+}
+
+// ============ NOTIFICATIONS ============
+enum NotificationChannel {
+  EMAIL
+  PUSH
+}
+
+enum NotificationType {
+  ATTENDANCE_CONFIRMATION
+  LOW_ATTENDANCE_ALERT
+  GENERAL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model Notification {
+  id        Int                 @id @default(autoincrement())
+  userId    Int                 @map("user_id")
+  title     String              @db.VarChar(150)
+  message   String              @db.Text
+  channel   NotificationChannel
+  type      NotificationType
+  status    NotificationStatus  @default(PENDING)
+  readAt    DateTime?           @map("read_at")
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// ============ LEAVE REQUESTS ============
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model LeaveRequest {
+  id         Int         @id @default(autoincrement())
+  userId     Int         @map("user_id")
+  fromDate   DateTime    @map("from_date") @db.Date
+  toDate     DateTime    @map("to_date") @db.Date
+  reason     String?     @db.VarChar(500)
+  status     LeaveStatus @default(PENDING)
+  approvedBy Int?        @map("approved_by")
+  decidedAt  DateTime?   @map("decided_at")
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  user     User  @relation("LeaveRequester", fields: [userId], references: [id], onDelete: Cascade)
+  approver User? @relation("LeaveApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+
+  @@map("leave_requests")
+}
+
+// ============ AUDIT LOGS ============
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  actorId    Int?     @map("actor_id") // null = system-generated action
+  action     String   @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   Int?     @map("entity_id")
+  metadata   Json?
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+// ============ ANNOUNCEMENTS ============
+enum AnnouncementCategory {
+  CIRCULAR
+  ALERT
+  DEVICE_STATUS
+  EXAM
+  GENERAL
+}
+
+enum AnnouncementPriority {
+  URGENT
+  HIGH
+  NORMAL
+}
+
+model Announcement {
+  id          Int                  @id @default(autoincrement())
+  referenceNo String               @unique @map("reference_no") @db.VarChar(50)
+  title       String               @db.VarChar(200)
+  message     String               @db.Text
+  category    AnnouncementCategory
+  priority    AnnouncementPriority @default(NORMAL)
+  targetRole  String?              @default("ALL") @map("target_role") @db.VarChar(20)
+  issuedById  Int?                 @map("issued_by_id")
+  dateIssued  DateTime             @map("date_issued") @db.Date
+  isPinned    Boolean              @default(false) @map("is_pinned")
+  createdAt   DateTime             @default(now()) @map("created_at")
+
+  issuedBy User? @relation("AnnouncementIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  @@map("announcements")
+}
+
+// ============ DOCUMENTS ============
+enum DocumentCategory {
+  CERTIFICATE
+  LEAVE
+  CIRCULAR
+  GUIDELINES
+}
+
+model DocumentFile {
+  id              Int              @id @default(autoincrement())
+  title           String           @db.VarChar(200)
+  code            String           @unique @db.VarChar(50)
+  category        DocumentCategory
+  description     String           @db.Text
+  filePath        String           @map("file_path") @db.VarChar(500)
+  fileSizeBytes   Int              @map("file_size_bytes")
+  downloadsCount  Int              @default(0) @map("downloads_count")
+  uploadedById    Int?             @map("uploaded_by_id")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  uploadedBy User? @relation("DocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@map("documents")
+}
