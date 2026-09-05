@@ -1,0 +1,7 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// Replace with your deployed Google Apps Script Web App URL
+#define SCRIPT_URL "YOUR_GOOGLE_APPS_SCRIPT_URL"
+
+#endif

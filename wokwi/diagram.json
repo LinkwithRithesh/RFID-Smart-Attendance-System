@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "author": "KK",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 52.7, "left": 71.8, "attrs": {} },
+    {
+      "type": "wokwi-buzzer",
+      "id": "bz1",
+      "top": -55.2,
+      "left": 280.2,
+      "attrs": { "volume": "0.1" }
+    },
+    { "type": "board-mfrc522", "id": "rfid1", "top": -12.25, "left": 377.84, "attrs": {} },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "lcd1",
+      "top": 140.8,
+      "left": 380,
+      "attrs": { "pins": "i2c" }
+    }
+  ],
+  "connections": [
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ],
+    [ "r3:1", "led4:A", "green", [ "v0" ] ],
+    [ "led4:C", "esp:GND.1", "green", [ "v138.64", "h-88.39", "v102.35", "h600.84", "v-182.05" ] ],
+    [ "r3:2", "esp:D2", "green", [ "v99.14", "h278.51", "v-37.5" ] ],
+    [ "rfid1:SDA", "esp:D5", "green", [ "h0" ] ],
+    [ "rfid1:SCK", "esp:D18", "green", [ "h0" ] ],
+    [ "rfid1:MOSI", "esp:D23", "green", [ "h0" ] ],
+    [ "rfid1:MISO", "esp:D19", "green", [ "h0" ] ],
+    [ "rfid1:GND", "esp:GND.1", "black", [ "h0" ] ],
+    [ "rfid1:3.3V", "esp:3V3", "green", [ "h0" ] ],
+    [ "lcd1:VCC", "esp:VIN", "red", [ "h0" ] ],
+    [ "lcd1:SDA", "esp:D21", "green", [ "h0" ] ],
+    [ "lcd1:SCL", "esp:D22", "green", [ "h0" ] ],
+    [ "lcd1:GND", "esp:GND.1", "black", [ "h0" ] ],
+    [ "bz1:1", "esp:GND.1", "green", [ "v0" ] ],
+    [ "bz1:2", "esp:D4", "green", [ "v0" ] ],
+    [ "rfid1:RST", "esp:D27", "green", [ "h0" ] ]
+  ],
+  "dependencies": {}
+}

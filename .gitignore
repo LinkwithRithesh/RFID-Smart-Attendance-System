@@ -1,4 +1,8 @@
-# Dependencies
+# ================================
+# SmartAttend Git Ignore
+# ================================
+
+# Node dependencies
 node_modules/
 **/node_modules/
 
@@ -8,6 +12,14 @@ node_modules/
 out/
 **/out/
 
+# Build files
+dist/
+**/dist/
+build/
+**/build/
+coverage/
+**/coverage/
+
 # Environment / secrets
 .env
 .env.local
@@ -15,20 +27,28 @@ out/
 .env.test.local
 .env.production.local
 !.env.example
-
-# Build files
-dist/
-build/
-coverage/
+!.env.local.example
 
 # Logs
 *.log
 logs/
 **/logs/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
 
 # Runtime uploads
 uploads/
 **/uploads/
+
+# Cache
+.cache/
+**/.cache/
+.turbo/
+**/.turbo/
+
+# TypeScript
+*.tsbuildinfo
 
 # IDE
 .vscode/
@@ -41,6 +61,3 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
-
-# TypeScript
-*.tsbuildinfo
