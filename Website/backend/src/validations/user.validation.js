@@ -4,6 +4,7 @@ const baseUserFields = {
   fullName: z.string().min(1, 'fullName is required'),
   email: z.string().email(),
   password: z.string().min(8, 'password must be at least 8 characters'),
+  phone: z.string().max(20).optional(),
   departmentId: z.number().int().positive().optional(),
   rfidCardId: z.string().min(1).optional(),
 };
@@ -21,6 +22,9 @@ const createUserSchema = z.object({
         courseId: z.number().int().positive(),
         currentSemester: z.number().int().min(1).max(12),
         admissionYear: z.number().int().min(2000).max(2100),
+        parentName: z.string().max(150).optional(),
+        parentPhone: z.string().max(20).optional(),
+        address: z.string().max(255).optional(),
       }),
     }),
     z.object({
@@ -107,9 +111,22 @@ const updateUserSchema = z.object({
   body: z
     .object({
       fullName: z.string().min(1).optional(),
+      email: z.string().email().optional(),
+      phone: z.string().max(20).nullable().optional(),
       departmentId: z.number().int().positive().nullable().optional(),
       rfidCardId: z.string().min(1).nullable().optional(),
       isActive: z.boolean().optional(),
+      profile: z
+        .object({
+          rollNumber: z.string().min(1).optional(),
+          courseId: z.number().int().positive().optional(),
+          currentSemester: z.number().int().min(1).max(12).optional(),
+          admissionYear: z.number().int().min(2000).max(2100).optional(),
+          parentName: z.string().max(150).nullable().optional(),
+          parentPhone: z.string().max(20).nullable().optional(),
+          address: z.string().max(255).nullable().optional(),
+        })
+        .optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {
       message: 'At least one field must be provided',

@@ -53,9 +53,12 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (selectedSubject) {
-      const logs = mockService.getAttendanceCalendar(studentRoll, selectedSubject.code, 7, 2026);
-      setCalendarLogs(logs);
-      setSelectedDate(8);
+      const timer = setTimeout(() => {
+        const logs = mockService.getAttendanceCalendar(studentRoll, selectedSubject.code, 7, 2026);
+        setCalendarLogs(logs);
+        setSelectedDate(8);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [selectedSubject, studentRoll]);
 

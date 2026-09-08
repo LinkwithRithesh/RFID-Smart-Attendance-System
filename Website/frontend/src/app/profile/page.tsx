@@ -133,13 +133,14 @@ export default function ProfilePage() {
           {/* Left: Identity Card */}
           <div className="lg:col-span-4 bg-white rounded-2xl border border-[#E2E8F0] p-6 shadow-xs text-center space-y-4">
             <div className="w-24 h-24 rounded-2xl bg-[#0B2C5C] text-white flex items-center justify-center font-black text-3xl mx-auto shadow-md">
-              {user?.name?.charAt(0) || "R"}
+              {user?.name?.charAt(0) || "U"}
             </div>
             <div>
-              <h2 className="text-lg font-black text-[#0B2C5C]">{user?.name || "RITHESHWARAN A"}</h2>
+              <h2 className="text-lg font-black text-[#0B2C5C]">{user?.name || "User Profile"}</h2>
               <div className="text-xs font-mono font-bold text-slate-500 mt-0.5">
-                Roll No: {user?.userId || "2025105002"}
+                ID / Roll No: {user?.userId || "N/A"}
               </div>
+
               <span className="inline-block mt-2 px-3 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200">
                 Active Student • Semester 3
               </span>

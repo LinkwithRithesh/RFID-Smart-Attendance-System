@@ -22,8 +22,9 @@ import {
 export default function ODRequestsPage() {
   const { user } = useAuth();
   const role = user?.role || "STUDENT";
-  const studentRoll = user?.userId || "2025105002";
-  const studentName = user?.name || "RITHESHWARAN A";
+  const studentRoll = user?.userId || "";
+  const studentName = user?.name || "";
+
 
   const [requests, setRequests] = useState(() =>
     role === "STUDENT" ? mockService.getODRequests(studentRoll) : mockService.getODRequests()
@@ -165,7 +166,7 @@ export default function ODRequestsPage() {
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-600">
                     <div>
                       <span>Duration: <strong className="text-slate-800">{req.date} to {req.endDate}</strong></span>
-                      <p className="text-slate-500 mt-0.5 italic">"{req.reason}"</p>
+                      <p className="text-slate-500 mt-0.5 italic">&quot;{req.reason}&quot;</p>
                     </div>
 
                     {/* Faculty/Admin Decision Actions */}

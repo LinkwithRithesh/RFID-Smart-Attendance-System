@@ -7,11 +7,17 @@ const { verifyAccessToken } = require('../utils/jwt.utils');
  */
 function authenticate(req, res, next) {
   const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) {
-    return next(new ApiError(401, 'Authentication token missing'));
+  let token = null;
+
+  if (header && header.startsWith('Bearer ')) {
+    token = header.split(' ')[1];
+  } else if (req.query && req.query.token) {
+    token = req.query.token;
   }
 
-  const token = header.split(' ')[1];
+  if (!token) {
+    return next(new ApiError(401, 'Authentication token missing'));
+  }
 
   try {
     const decoded = verifyAccessToken(token);

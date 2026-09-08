@@ -30,7 +30,7 @@ async function getUser(req, res, next) {
 
 async function updateUser(req, res, next) {
   try {
-    const user = await userService.updateUser(req.params.id, req.body, req.user.id);
+    const user = await userService.updateUser(req.params.id, req.body, req.user);
     return success(res, 200, 'User updated', user);
   } catch (err) {
     next(err);

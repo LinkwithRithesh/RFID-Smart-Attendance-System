@@ -83,8 +83,36 @@ async function refresh(refreshToken) {
   return issueTokens(user); // rotate: issue new pair, overwrite stored hash
 }
 
-async function logout(userId) {
-  await userRepository.updateRefreshTokenHash(userId, null);
+const prisma = require('../config/database');
+
+async function changePassword(userId, oldPassword, newPassword, ipAddress) {
+  const user = await userRepository.findById(userId);
+  if (!user || !user.isActive) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  const matches = await bcrypt.compare(oldPassword, user.passwordHash);
+  if (!matches) {
+    throw new ApiError(400, 'Current password is incorrect');
+  }
+
+  const PASSWORD_SALT_ROUNDS = 10;
+  const newHash = await bcrypt.hash(newPassword, PASSWORD_SALT_ROUNDS);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: newHash },
+  });
+
+  await auditLogRepository.log({
+    actorId: userId,
+    action: 'PASSWORD_CHANGED',
+    entityType: 'User',
+    entityId: userId,
+    ipAddress,
+  });
+
+  return true;
 }
 
-module.exports = { login, refresh, logout };
+module.exports = { login, refresh, logout, changePassword };

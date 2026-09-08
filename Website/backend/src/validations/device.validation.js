@@ -24,7 +24,9 @@ const updateDeviceSchema = z.object({
 });
 
 const deviceIdParamSchema = z.object({
-  params: z.object({ id: z.coerce.number().int().positive() }),
+  params: z.object({
+    id: z.union([z.coerce.number().int().positive(), z.string().min(1)]),
+  }),
 });
 
 const listDevicesQuerySchema = z.object({

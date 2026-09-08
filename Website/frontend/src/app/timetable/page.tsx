@@ -90,7 +90,7 @@ export default function TimetablePage() {
                 : "text-slate-600 hover:text-[#0B2C5C]"
             }`}
           >
-            Today's Schedule Only
+            Today&apos;s Schedule Only
           </button>
         </div>
 

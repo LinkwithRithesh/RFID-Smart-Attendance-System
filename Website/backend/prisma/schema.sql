@@ -46,6 +46,7 @@ CREATE TABLE users (
   password_hash VARCHAR(255) NOT NULL,
   role_id INT NOT NULL,
   department_id INT NULL,
+  phone VARCHAR(20) NULL,
   rfid_card_id VARCHAR(100) UNIQUE,
   face_embedding_path VARCHAR(255),
   refresh_token_hash VARCHAR(255),
@@ -90,6 +91,9 @@ CREATE TABLE student_profiles (
   course_id INT NOT NULL,
   current_semester TINYINT NOT NULL,
   admission_year YEAR NOT NULL,
+  parent_name VARCHAR(150) NULL,
+  parent_phone VARCHAR(20) NULL,
+  address VARCHAR(255) NULL,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE RESTRICT
 );

@@ -37,7 +37,7 @@ class ApiClient {
   }
 
   public getToken(): string | null {
-    return this.token;
+    return this.token || (typeof window !== "undefined" ? localStorage.getItem("cegov_token") : null);
   }
 
   public getRefreshToken(): string | null {
@@ -183,8 +183,14 @@ class ApiClient {
       const body = await res.json().catch(() => null);
       if (body?.data?.accessToken) {
         this.token = body.data.accessToken;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("cegov_token", body.data.accessToken);
+        }
         if (body.data.refreshToken) {
           this.refreshToken = body.data.refreshToken;
+          if (typeof window !== "undefined") {
+            localStorage.setItem("cegov_refresh_token", body.data.refreshToken);
+          }
         }
         return true;
       }
@@ -195,11 +201,18 @@ class ApiClient {
   }
 
   private handleAuthFailure() {
-    this.clearTokens();
-    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+  this.clearTokens();
+
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("cegov_token");
+    localStorage.removeItem("cegov_refresh_token");
+    localStorage.removeItem("cegov_user");
+
+    if (!window.location.pathname.startsWith("/login")) {
       window.location.href = "/login";
     }
   }
+}
 
   // Convenience verbs
   public get<T = any>(endpoint: string, headers?: Record<string, string>): Promise<ApiResponse<T>> {
@@ -275,3 +288,7 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+
+export function getToken(): string | null {
+  return apiClient.getToken();
+}

@@ -4,10 +4,17 @@ const { ROLE_PROFILE_RELATION } = require('../utils/roleProfileMap');
 // All profile relations included on every fetch; only the one matching the
 // user's role will be non-null. Simpler than conditionally building the
 // include object per role, and the extra relations are cheap (1:1, empty).
-const ALL_PROFILE_INCLUDES = Object.values(ROLE_PROFILE_RELATION).reduce(
-  (acc, relation) => ({ ...acc, [relation]: true }),
-  {}
-);
+// All profile relations included on every fetch; only the one matching the
+// user's role will be non-null. Student profile also includes course relation.
+const ALL_PROFILE_INCLUDES = {
+  ...Object.values(ROLE_PROFILE_RELATION).reduce(
+    (acc, relation) => ({ ...acc, [relation]: true }),
+    {}
+  ),
+  studentProfile: {
+    include: { course: true },
+  },
+};
 
 function findByEmail(email) {
   return prisma.user.findUnique({
@@ -48,7 +55,7 @@ function updateRefreshTokenHash(userId, refreshTokenHash) {
  * Creates the user row and its role-specific profile row in one transaction
  * so a partially-created user (no profile) can never exist.
  */
-function createUserWithProfile({ fullName, email, passwordHash, roleId, departmentId, rfidCardId, profileRelation, profileData }) {
+function createUserWithProfile({ fullName, email, passwordHash, roleId, departmentId, phone, rfidCardId, profileRelation, profileData }) {
   return prisma.user.create({
     data: {
       fullName,
@@ -56,7 +63,8 @@ function createUserWithProfile({ fullName, email, passwordHash, roleId, departme
       passwordHash,
       roleId,
       departmentId,
-      rfidCardId,
+      phone: phone || null,
+      rfidCardId: rfidCardId || null,
       [profileRelation]: { create: profileData },
     },
     include: { role: true, [profileRelation]: true },
@@ -90,6 +98,27 @@ function updateUser(id, data) {
   });
 }
 
+function updateUserWithProfile(id, userData, profileRelation, profileData) {
+  return prisma.$transaction(async (tx) => {
+    if (userData && Object.keys(userData).length > 0) {
+      await tx.user.update({
+        where: { id },
+        data: userData,
+      });
+    }
+    if (profileRelation && profileData && Object.keys(profileData).length > 0) {
+      await tx[profileRelation].update({
+        where: { userId: id },
+        data: profileData,
+      });
+    }
+    return tx.user.findUnique({
+      where: { id },
+      include: { role: true, department: true, ...ALL_PROFILE_INCLUDES },
+    });
+  });
+}
+
 function deactivateUser(id) {
   return prisma.user.update({
     where: { id },
@@ -106,5 +135,6 @@ module.exports = {
   createUserWithProfile,
   listUsers,
   updateUser,
+  updateUserWithProfile,
   deactivateUser,
 };

@@ -72,23 +72,33 @@ export default function DevicesPage() {
     };
   }, []);
 
-  const handleTestBuzzer = (code: string) => {
+  const handleTestBuzzer = async (code: string) => {
     setBuzzerActive(code);
-    mockService.testBuzzer(code);
-    setTimeout(() => {
-      setBuzzerActive(null);
-    }, 1500);
+    try {
+      await mockService.testBuzzer(code);
+    } catch (err: any) {
+      alert(err?.message || "Failed to trigger buzzer test");
+    } finally {
+      setTimeout(() => {
+        setBuzzerActive(null);
+      }, 1500);
+    }
   };
 
-  const handleRestartDevice = (id: string, code: string) => {
+  const handleRestartDevice = async (id: string, code: string) => {
     setRestartingId(code);
-    mockService.restartDevice(id, {
-      user: user?.name || "Dr. K. Arumugam",
-      role: "ADMIN",
-    });
-    setTimeout(() => {
-      setRestartingId(null);
-    }, 2000);
+    try {
+      await mockService.restartDevice(id, {
+        user: user?.name || "Dr. K. Arumugam",
+        role: "ADMIN",
+      });
+    } catch (err: any) {
+      alert(err?.message || "Failed to trigger device restart");
+    } finally {
+      setTimeout(() => {
+        setRestartingId(null);
+      }, 2000);
+    }
   };
 
   return (

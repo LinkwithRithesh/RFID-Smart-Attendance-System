@@ -92,15 +92,16 @@ class MockDataStore {
 
     try {
       // 1. Fetch IoT Devices
-      const devRes = await apiClient.get<any[]>("/devices");
-      if (devRes.data && Array.isArray(devRes.data)) {
-        this.iotDevices = devRes.data.map((d) => ({
+      const devRes = await apiClient.get<any>("/devices");
+      const devicesList = Array.isArray(devRes.data) ? devRes.data : devRes.data?.devices;
+      if (devicesList && Array.isArray(devicesList)) {
+        this.iotDevices = devicesList.map((d: any) => ({
           id: String(d.id),
-          code: d.deviceCode || `ESP32-${d.id}`,
+          code: d.deviceCode || d.code || `ESP32-${d.id}`,
           location: d.location || "North Entrance Turnstile",
           ipAddress: d.ipAddress || "192.168.1.50",
           macAddress: d.macAddress || "30:AE:A4:07:0E:64",
-          status: d.isOnline || d.status === "ACTIVE" ? "ONLINE" : "OFFLINE",
+          status: d.isOnline || d.status === "ONLINE" || d.status === "ACTIVE" ? "ONLINE" : "OFFLINE",
           lastSeen: d.secondsSinceHeartbeat !== undefined
             ? `${d.secondsSinceHeartbeat}s ago`
             : "Active",
@@ -352,18 +353,18 @@ class MockDataStore {
               code: sub.code || sub.subjectCode,
               name: sub.name || sub.subjectName,
               faculty: sub.faculty || sub.facultyName || "Faculty Incharge",
-              held: sub.held ?? 30,
-              attended: sub.attended ?? 26,
-              absent: sub.absent ?? 4,
+              held: sub.held ?? 0,
+              attended: sub.attended ?? 0,
+              absent: sub.absent ?? 0,
               od: sub.od ?? 0,
               late: sub.late ?? 0,
-              percentage: sub.percentage ?? 86.7,
+              percentage: sub.percentage ?? 0,
               status:
-                sub.status === "ELIGIBLE" || sub.percentage >= 90
+                sub.status === "ELIGIBLE" || (sub.percentage || 0) >= 90
                   ? "ELIGIBLE"
-                  : sub.percentage >= 75
+                  : (sub.percentage || 0) >= 75
                   ? "SAFE"
-                  : sub.percentage >= 70
+                  : (sub.percentage || 0) >= 70
                   ? "WARNING"
                   : "SHORTAGE",
             }));
@@ -393,12 +394,12 @@ class MockDataStore {
 
     this.courses.forEach((c) => {
       const records = studentRecords.filter((r) => r.courseCode === c.code);
-      const held = records.length || 30; // Fallback to course default if fresh
+      const held = records.length;
       const attended = records.filter((r) => r.status === "PRESENT" || r.status === "LATE" || r.status === "OD").length;
       const absent = records.filter((r) => r.status === "ABSENT").length;
       const od = records.filter((r) => r.status === "OD").length;
       const late = records.filter((r) => r.status === "LATE").length;
-      const percentage = held > 0 ? Number(((attended / held) * 100).toFixed(1)) : 100;
+      const percentage = held > 0 ? Number(((attended / held) * 100).toFixed(1)) : 0;
 
       let status: "SAFE" | "WARNING" | "SHORTAGE" | "ELIGIBLE" = "SAFE";
       if (percentage >= 90) status = "ELIGIBLE";
@@ -430,19 +431,19 @@ class MockDataStore {
 
     if (!this.useMocks() && typeof window !== "undefined") {
       apiClient
-        .get<any>(`/attendance/summary?studentId=${studentRoll}`)
+        .get<any>(`/dashboard/student/stats?studentId=${studentRoll}`)
         .then((res) => {
           if (res.data) {
             const d = res.data;
             const mapped = {
-              totalHeld: d.held ?? 180,
-              totalAttended: d.attended ?? 158,
-              totalAbsent: d.absent ?? 22,
-              overallPercentage: d.percentage ?? 87.8,
-              maxAllowedMisses: d.safeMisses ?? 6,
-              classesNeededFor75: d.requiredTo75 ?? 0,
-              attendanceStreak: d.streak ?? 12,
-              isEligible: (d.percentage ?? 87.8) >= 75,
+              totalHeld: d.totalHeld ?? d.held ?? 0,
+              totalAttended: d.totalAttended ?? d.attended ?? 0,
+              totalAbsent: d.totalAbsent ?? d.absent ?? 0,
+              overallPercentage: d.overallPercentage ?? d.percentage ?? 0,
+              maxAllowedMisses: d.maxAllowedMisses ?? d.safeMisses ?? 0,
+              classesNeededFor75: d.classesNeededFor75 ?? d.requiredTo75 ?? 0,
+              attendanceStreak: d.attendanceStreak ?? d.streak ?? 0,
+              isEligible: (d.overallPercentage ?? d.percentage ?? 0) >= 75,
             };
             this.backendOverallStats.set(studentRoll, mapped);
             this.notify();
@@ -455,12 +456,9 @@ class MockDataStore {
     const totalHeld = subjects.reduce((acc, curr) => acc + curr.held, 0);
     const totalAttended = subjects.reduce((acc, curr) => acc + curr.attended, 0);
     const totalAbsent = subjects.reduce((acc, curr) => acc + curr.absent, 0);
-    const overallPercentage = totalHeld > 0 ? Number(((totalAttended / totalHeld) * 100).toFixed(1)) : 87.0;
+    const overallPercentage = totalHeld > 0 ? Number(((totalAttended / totalHeld) * 100).toFixed(1)) : 0;
 
-    // Calculation for safe classes to miss: Attended / (TotalHeld + X) >= 0.75 => X = (Attended / 0.75) - TotalHeld
     const maxAllowedMisses = Math.max(0, Math.floor((totalAttended - 0.75 * totalHeld) / 0.75));
-
-    // Calculation for classes needed if in shortage: (Attended + Y) / (TotalHeld + Y) >= 0.75 => Y = (0.75*TotalHeld - Attended) / 0.25
     const classesNeededFor75 = overallPercentage < 75 ? Math.max(0, Math.ceil((0.75 * totalHeld - totalAttended) / 0.25)) : 0;
 
     return {
@@ -470,10 +468,11 @@ class MockDataStore {
       overallPercentage,
       maxAllowedMisses,
       classesNeededFor75,
-      attendanceStreak: 12, // 12 consecutive present sessions
+      attendanceStreak: 0,
       isEligible: overallPercentage >= 75,
     };
   }
+
 
   public getAttendanceCalendar(studentRoll: string, subjectCode: string, month: number = 7, year: number = 2026) {
     const key = `${studentRoll}_${subjectCode}_${month}_${year}`;
@@ -686,7 +685,7 @@ class MockDataStore {
     return [...this.iotDevices];
   }
 
-  public restartDevice(deviceId: string, operator: { user: string; role: "ADMIN" }) {
+  public async restartDevice(deviceId: string, operator: { user: string; role: "ADMIN" }) {
     const dev = this.iotDevices.find((d) => d.id === deviceId || d.code === deviceId);
     if (!dev) return false;
 
@@ -694,9 +693,10 @@ class MockDataStore {
     dev.status = "ONLINE";
 
     if (!this.useMocks()) {
-      apiClient
-        .post(`/devices/${dev.id}/restart`)
-        .catch((err) => console.warn("Backend restart command deferred:", err));
+      const res = await apiClient.post(`/devices/${dev.id || dev.code}/restart`);
+      if (res.error) {
+        throw new Error(res.error);
+      }
     }
 
     this.writeAuditLog({
@@ -712,15 +712,16 @@ class MockDataStore {
     return true;
   }
 
-  public testBuzzer(deviceId: string): boolean {
+  public async testBuzzer(deviceId: string): Promise<boolean> {
     const dev = this.iotDevices.find((d) => d.id === deviceId || d.code === deviceId);
     if (!dev) return false;
     dev.buzzer = "CONNECTED";
 
     if (!this.useMocks()) {
-      apiClient
-        .post(`/devices/${dev.id}/test-buzzer`)
-        .catch((err) => console.warn("Backend test-buzzer command deferred:", err));
+      const res = await apiClient.post(`/devices/${dev.id || dev.code}/test-buzzer`);
+      if (res.error) {
+        throw new Error(res.error);
+      }
     }
 
     return true;

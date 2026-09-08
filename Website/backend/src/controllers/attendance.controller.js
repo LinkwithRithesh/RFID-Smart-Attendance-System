@@ -40,9 +40,21 @@ async function sync(req, res, next) {
 const { calculateAttendanceMetrics } = require('../services/attendanceAnalytics.service');
 const prisma = require('../config/database');
 
+async function resolveStudentId(queryStudentId, fallbackUserId) {
+  if (!queryStudentId) return fallbackUserId;
+  const numericId = Number(queryStudentId);
+  if (!isNaN(numericId) && Number.isInteger(numericId) && numericId < 100000) {
+    return numericId;
+  }
+  const profile = await prisma.studentProfile.findUnique({
+    where: { rollNumber: String(queryStudentId) },
+  });
+  return profile ? profile.userId : fallbackUserId;
+}
+
 async function getStudentSummary(req, res, next) {
   try {
-    const studentId = req.query.studentId ? Number(req.query.studentId) : req.user?.id;
+    const studentId = await resolveStudentId(req.query.studentId, req.user?.id);
     const records = await prisma.attendance.findMany({
       where: { userId: studentId },
       orderBy: { markedAt: 'asc' },
@@ -57,7 +69,7 @@ async function getStudentSummary(req, res, next) {
 
 async function getStudentSubjects(req, res, next) {
   try {
-    const studentId = req.query.studentId ? Number(req.query.studentId) : req.user?.id;
+    const studentId = await resolveStudentId(req.query.studentId, req.user?.id);
     const subjects = await prisma.subject.findMany({
       include: {
         attendanceSessions: {
@@ -91,7 +103,7 @@ async function getStudentSubjects(req, res, next) {
 
 async function getSubjectCalendar(req, res, next) {
   try {
-    const studentId = req.query.studentId ? Number(req.query.studentId) : req.user?.id;
+    const studentId = await resolveStudentId(req.query.studentId, req.user?.id);
     const { subject, month, year } = req.query;
 
     const records = await prisma.attendance.findMany({

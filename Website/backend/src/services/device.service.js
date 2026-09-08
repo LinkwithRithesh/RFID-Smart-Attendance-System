@@ -61,8 +61,17 @@ async function listDevices({ page, limit, departmentId, status }) {
   };
 }
 
+async function findDeviceByIdOrCode(idOrCode) {
+  const numericId = Number(idOrCode);
+  if (!isNaN(numericId) && Number.isInteger(numericId) && numericId > 0) {
+    const dev = await deviceRepository.findById(numericId);
+    if (dev) return dev;
+  }
+  return deviceRepository.findByCode(String(idOrCode));
+}
+
 async function getDevice(id) {
-  const device = await deviceRepository.findById(id);
+  const device = await findDeviceByIdOrCode(id);
   if (!device) {
     throw new ApiError(404, 'Device not found');
   }
@@ -70,25 +79,25 @@ async function getDevice(id) {
 }
 
 async function updateDevice(id, data, actorId) {
-  const existing = await deviceRepository.findById(id);
+  const existing = await findDeviceByIdOrCode(id);
   if (!existing) {
     throw new ApiError(404, 'Device not found');
   }
 
-  const updated = await deviceRepository.update(id, data);
+  const updated = await deviceRepository.update(existing.id, data);
 
   await auditLogRepository.log({
     actorId,
     action: 'DEVICE_UPDATED',
     entityType: 'Device',
-    entityId: id,
+    entityId: existing.id,
   });
 
   return toPublicDevice(updated);
 }
 
 async function decommissionDevice(id, actorId) {
-  const existing = await deviceRepository.findById(id);
+  const existing = await findDeviceByIdOrCode(id);
   if (!existing) {
     throw new ApiError(404, 'Device not found');
   }
@@ -96,18 +105,18 @@ async function decommissionDevice(id, actorId) {
     throw new ApiError(409, 'Device is already decommissioned');
   }
 
-  await deviceRepository.decommission(id);
+  await deviceRepository.decommission(existing.id);
 
   await auditLogRepository.log({
     actorId,
     action: 'DEVICE_DECOMMISSIONED',
     entityType: 'Device',
-    entityId: id,
+    entityId: existing.id,
   });
 }
 
 async function rotateApiKey(id, actorId) {
-  const existing = await deviceRepository.findById(id);
+  const existing = await findDeviceByIdOrCode(id);
   if (!existing) {
     throw new ApiError(404, 'Device not found');
   }
@@ -117,13 +126,13 @@ async function rotateApiKey(id, actorId) {
 
   const apiKey = generateApiKey();
   const apiKeyHash = await hashApiKey(apiKey);
-  await deviceRepository.updateApiKeyHash(id, apiKeyHash);
+  await deviceRepository.updateApiKeyHash(existing.id, apiKeyHash);
 
   await auditLogRepository.log({
     actorId,
     action: 'DEVICE_KEY_ROTATED',
     entityType: 'Device',
-    entityId: id,
+    entityId: existing.id,
   });
 
   return { apiKey };
@@ -143,14 +152,14 @@ async function recordHeartbeat(device, firmwareVersion) {
 }
 
 async function restartDevice(id, actor) {
-  const device = await deviceRepository.findById(id);
+  const device = await findDeviceByIdOrCode(id);
   if (!device) throw new ApiError(404, 'Device not found');
 
   await auditLogRepository.log({
     actorId: actor?.id || null,
     action: 'DEVICE_RESTART_TRIGGERED',
     entityType: 'Device',
-    entityId: id,
+    entityId: device.id,
     metadata: { deviceCode: device.deviceCode },
   });
 
@@ -159,14 +168,14 @@ async function restartDevice(id, actor) {
 }
 
 async function testBuzzer(id, actor) {
-  const device = await deviceRepository.findById(id);
+  const device = await findDeviceByIdOrCode(id);
   if (!device) throw new ApiError(404, 'Device not found');
 
   await auditLogRepository.log({
     actorId: actor?.id || null,
     action: 'DEVICE_BUZZER_TEST_TRIGGERED',
     entityType: 'Device',
-    entityId: id,
+    entityId: device.id,
     metadata: { deviceCode: device.deviceCode },
   });
 

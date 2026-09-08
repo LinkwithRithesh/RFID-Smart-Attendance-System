@@ -8,10 +8,14 @@ const prisma = require('../config/database');
 const router = express.Router();
 router.use(authenticate, authorize('ADMINISTRATOR', 'ADMIN'));
 
-// List all courses
+// List all courses (optionally filtered by departmentId)
 router.get('/', async (req, res, next) => {
   try {
+    const { departmentId } = req.query;
+    const where = departmentId ? { departmentId: Number(departmentId) } : {};
+
     const courses = await prisma.course.findMany({
+      where,
       include: {
         department: true,
         subjects: true,
@@ -23,6 +27,7 @@ router.get('/', async (req, res, next) => {
       id: c.id,
       code: c.code,
       name: c.name,
+      departmentId: c.departmentId,
       department: c.department?.name || 'Engineering',
       durationSemesters: c.durationSemesters,
       semester: 3,

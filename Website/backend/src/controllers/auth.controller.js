@@ -46,6 +46,14 @@ async function me(req, res, next) {
   } catch (err) {
     next(err);
   }
+async function changePassword(req, res, next) {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    await authService.changePassword(req.user.id, oldPassword, newPassword, req.ip);
+    return success(res, 200, 'Password changed successfully');
+  } catch (err) {
+    next(err);
+  }
 }
 
-module.exports = { login, refresh, logout, me };
+module.exports = { login, refresh, logout, me, changePassword };

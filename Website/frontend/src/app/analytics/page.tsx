@@ -110,7 +110,7 @@ export default function AnalyticsPage() {
               <h3 className="text-sm font-extrabold text-[#0B2C5C] uppercase tracking-tight">
                 Hourly Peak Scan Distribution
               </h3>
-              <span className="text-xs font-mono text-slate-500">Today's Traffic</span>
+              <span className="text-xs font-mono text-slate-500">Today&apos;s Traffic</span>
             </div>
 
             <div className="h-64 w-full">

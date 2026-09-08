@@ -2,128 +2,205 @@ const express = require('express');
 const authenticate = require('../middleware/authenticate');
 const { success } = require('../utils/apiResponse');
 const ApiError = require('../utils/ApiError');
+const prisma = require('../config/database');
 const { getEffectiveRole } = require('../utils/roleMapper');
 
 const router = express.Router();
 router.use(authenticate);
 
-let ticketsStore = [
-  {
-    id: 'HD-101',
-    creatorId: 'STU-001',
-    creatorName: 'RITHESHWARAN A',
-    creatorRole: 'STUDENT',
-    category: 'RFID Hardware',
-    subject: 'Turnstile gate not reading RFID tag at North Entrance',
-    priority: 'HIGH',
-    status: 'OPEN',
-    assignedTo: 'Hardware Operations Desk',
-    createdAt: '2026-09-02 10:14:00',
-    updatedAt: '2026-09-02 10:14:00',
-    messages: [
-      {
-        id: 'MSG-1',
-        senderName: 'RITHESHWARAN A',
-        senderRole: 'STUDENT',
-        message: 'My card was tapped 3 times at North Turnstile 2 but reader gave red LED.',
-        timestamp: '2026-09-02 10:14:00',
-      },
-    ],
-  },
-  {
-    id: 'HD-102',
-    creatorId: 'FAC-101',
-    creatorName: 'Dr. S. Meenakshi',
-    creatorRole: 'FACULTY',
-    category: 'Face Recognition',
-    subject: 'High false mismatch rate in Room 302 morning period',
-    priority: 'MEDIUM',
-    status: 'IN_PROGRESS',
-    assignedTo: 'Biometrics Lab Desk',
-    createdAt: '2026-09-03 09:30:00',
-    updatedAt: '2026-09-03 11:15:00',
-    messages: [
-      {
-        id: 'MSG-2',
-        senderName: 'Dr. S. Meenakshi',
-        senderRole: 'FACULTY',
-        message: 'Camera lens in Room 302 appears out of focus under backlight.',
-        timestamp: '2026-09-03 09:30:00',
-      },
-    ],
-  },
-];
-
 // List tickets
-router.get('/', (req, res) => {
-  const effectiveRole = getEffectiveRole(req.user.role);
-  let tickets = ticketsStore;
-  if (effectiveRole === 'STUDENT') {
-    tickets = ticketsStore.filter((t) => t.creatorName === req.user.fullName || t.creatorRole === 'STUDENT');
+router.get('/', async (req, res, next) => {
+  try {
+    const effectiveRole = getEffectiveRole(req.user.role);
+    const where = {};
+    if (effectiveRole === 'STUDENT') {
+      where.userId = req.user.id;
+    }
+
+    const tickets = await prisma.helpDeskTicket.findMany({
+      where,
+      include: {
+        user: {
+          select: { id: true, fullName: true, role: { select: { name: true } } },
+        },
+        messages: {
+          include: {
+            sender: {
+              select: { id: true, fullName: true, role: { select: { name: true } } },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const formatted = tickets.map((t) => ({
+      id: t.ticketCode || `HD-${t.id}`,
+      dbId: t.id,
+      creatorId: String(t.userId),
+      creatorName: t.user?.fullName || 'Unknown',
+      creatorRole: getEffectiveRole(t.user?.role?.name || 'STUDENT'),
+      category: t.category,
+      subject: t.subject,
+      priority: t.priority,
+      status: t.status,
+      assignedTo: t.assignedTo ? String(t.assignedTo) : 'Support Desk',
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
+      messages: t.messages.map((m) => ({
+        id: `MSG-${m.id}`,
+        senderName: m.sender?.fullName || 'System',
+        senderRole: getEffectiveRole(m.sender?.role?.name || 'USER'),
+        message: m.content,
+        timestamp: m.createdAt.toISOString(),
+      })),
+    }));
+
+    return success(res, 200, 'Help Desk tickets retrieved', formatted);
+  } catch (err) {
+    next(err);
   }
-  return success(res, 200, 'Help Desk tickets retrieved', tickets);
 });
 
 // Create ticket
-router.post('/', (req, res) => {
-  const { category, subject, priority, initialMessage } = req.body;
-  const role = getEffectiveRole(req.user.role);
-  const newTicket = {
-    id: `HD-${Math.floor(100 + Math.random() * 900)}`,
-    creatorId: String(req.user.id),
-    creatorName: req.user.fullName,
-    creatorRole: role,
-    category: category || 'Attendance Correction',
-    subject: subject || 'General Query',
-    priority: priority || 'MEDIUM',
-    status: 'OPEN',
-    assignedTo: 'Systems Support Admin',
-    createdAt: new Date().toLocaleString(),
-    updatedAt: new Date().toLocaleString(),
-    messages: [
-      {
-        id: `MSG-${Date.now()}`,
-        senderName: req.user.fullName,
-        senderRole: role,
-        message: initialMessage || subject || 'Request initiated.',
-        timestamp: new Date().toLocaleString(),
-      },
-    ],
-  };
+router.post('/', async (req, res, next) => {
+  try {
+    const { category, subject, priority, initialMessage, message } = req.body;
+    const code = `HD-${Math.floor(1000 + Math.random() * 9000)}`;
+    const msgContent = initialMessage || message || subject || 'Request initiated.';
 
-  ticketsStore.unshift(newTicket);
-  return success(res, 201, 'Ticket created', newTicket);
+    const ticket = await prisma.helpDeskTicket.create({
+      data: {
+        ticketCode: code,
+        userId: req.user.id,
+        category: category || 'Attendance Correction',
+        subject: subject || 'General Query',
+        priority: priority || 'MEDIUM',
+        status: 'OPEN',
+        messages: {
+          create: {
+            senderId: req.user.id,
+            content: msgContent,
+          },
+        },
+      },
+      include: {
+        user: { select: { fullName: true, role: { select: { name: true } } } },
+        messages: true,
+      },
+    });
+
+    const formatted = {
+      id: ticket.ticketCode,
+      dbId: ticket.id,
+      creatorId: String(req.user.id),
+      creatorName: req.user.fullName,
+      creatorRole: getEffectiveRole(req.user.role),
+      category: ticket.category,
+      subject: ticket.subject,
+      priority: ticket.priority,
+      status: ticket.status,
+      assignedTo: 'Systems Support Admin',
+      createdAt: ticket.createdAt.toISOString(),
+      updatedAt: ticket.updatedAt.toISOString(),
+      messages: [
+        {
+          id: `MSG-${ticket.messages[0].id}`,
+          senderName: req.user.fullName,
+          senderRole: getEffectiveRole(req.user.role),
+          message: msgContent,
+          timestamp: ticket.createdAt.toISOString(),
+        },
+      ],
+    };
+
+    return success(res, 201, 'Ticket created', formatted);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Update ticket status
-router.patch('/:id/status', (req, res) => {
-  const { status } = req.body;
-  const ticket = ticketsStore.find((t) => t.id === req.params.id);
-  if (!ticket) throw new ApiError(404, 'Ticket not found');
+router.patch('/:id/status', async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    const ticketParam = req.params.id;
 
-  ticket.status = status;
-  ticket.updatedAt = new Date().toLocaleString();
-  return success(res, 200, 'Ticket status updated', ticket);
+    const existing = await prisma.helpDeskTicket.findFirst({
+      where: {
+        OR: [
+          { ticketCode: ticketParam },
+          ...(isNaN(Number(ticketParam)) ? [] : [{ id: Number(ticketParam) }]),
+        ],
+      },
+    });
+
+    if (!existing) throw new ApiError(404, 'Ticket not found');
+
+    const updated = await prisma.helpDeskTicket.update({
+      where: { id: existing.id },
+      data: {
+        status,
+        resolvedAt: status === 'RESOLVED' ? new Date() : null,
+      },
+    });
+
+    return success(res, 200, 'Ticket status updated', {
+      id: updated.ticketCode,
+      status: updated.status,
+      updatedAt: updated.updatedAt.toISOString(),
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Add message to ticket
-router.post('/:id/messages', (req, res) => {
-  const { message } = req.body;
-  const ticket = ticketsStore.find((t) => t.id === req.params.id);
-  if (!ticket) throw new ApiError(404, 'Ticket not found');
+router.post('/:id/messages', async (req, res, next) => {
+  try {
+    const { message, content } = req.body;
+    const msgContent = message || content;
+    if (!msgContent) throw new ApiError(400, 'Message content is required');
 
-  const role = getEffectiveRole(req.user.role);
-  const newMsg = {
-    id: `MSG-${Date.now()}`,
-    senderName: req.user.fullName,
-    senderRole: role,
-    message,
-    timestamp: new Date().toLocaleString(),
-  };
+    const ticketParam = req.params.id;
+    const existing = await prisma.helpDeskTicket.findFirst({
+      where: {
+        OR: [
+          { ticketCode: ticketParam },
+          ...(isNaN(Number(ticketParam)) ? [] : [{ id: Number(ticketParam) }]),
+        ],
+      },
+    });
 
-  ticket.messages.push(newMsg);
-  ticket.updatedAt = new Date().toLocaleString();
-  return success(res, 201, 'Message added', ticket);
+    if (!existing) throw new ApiError(404, 'Ticket not found');
+
+    const newMsg = await prisma.ticketMessage.create({
+      data: {
+        ticketId: existing.id,
+        senderId: req.user.id,
+        content: msgContent,
+      },
+    });
+
+    await prisma.helpDeskTicket.update({
+      where: { id: existing.id },
+      data: { updatedAt: new Date() },
+    });
+
+    const formattedMsg = {
+      id: `MSG-${newMsg.id}`,
+      senderName: req.user.fullName,
+      senderRole: getEffectiveRole(req.user.role),
+      message: newMsg.content,
+      timestamp: newMsg.createdAt.toISOString(),
+    };
+
+    return success(res, 201, 'Message added', formattedMsg);
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;
+

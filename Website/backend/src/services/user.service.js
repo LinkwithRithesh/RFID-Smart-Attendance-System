@@ -12,7 +12,8 @@ function toPublicUser(user) {
     id: user.id,
     fullName: user.fullName,
     email: user.email,
-    role: user.role.name,
+    phone: user.phone || null,
+    role: user.role?.name || user.role,
     departmentId: user.departmentId,
     isActive: user.isActive,
   };
@@ -22,12 +23,20 @@ function toPublicUser(user) {
 // included those relations (listUsers and getUser both do; findById/findByEmail
 // used by auth don't, and user.department/user[profileRelation] are simply
 // undefined there, which this handles safely).
+//
+// rfidCardId is passed through so the admin UI can display the UID or
+// "Not Registered". hasFaceEmbedding is a boolean derived from
+// faceEmbeddingPath — the raw server-side path is intentionally never
+// serialised to the client.
 function toPublicUserWithProfile(user) {
-  const profileRelation = ROLE_PROFILE_RELATION[user.role.name];
+  const roleName = user.role?.name || user.role;
+  const profileRelation = ROLE_PROFILE_RELATION[roleName];
   return {
     ...toPublicUser(user),
     departmentName: user.department?.name || null,
     profile: user[profileRelation] || null,
+    rfidCardId: user.rfidCardId || null,
+    hasFaceEmbedding: !!user.faceEmbeddingPath,
   };
 }
 
@@ -99,22 +108,55 @@ async function getUser(id, requester) {
   return toPublicUserWithProfile(user);
 }
 
-async function updateUser(id, data, actorId) {
-  const existing = await userRepository.findById(id);
+async function updateUser(id, data, requester) {
+  const numId = Number(id);
+  if (requester && requester.id !== numId && requester.role !== 'ADMINISTRATOR') {
+    throw new ApiError(403, 'You can only update your own profile');
+  }
+
+  const existing = await userRepository.findByIdWithProfile(numId);
   if (!existing) {
     throw new ApiError(404, 'User not found');
   }
 
-  const updated = await userRepository.updateUser(id, data);
+  const isSelf = requester && requester.id === numId && requester.role !== 'ADMINISTRATOR';
+
+  const { profile, ...userFields } = data;
+  let allowedUserFields = { ...userFields };
+  let allowedProfileFields = profile ? { ...profile } : undefined;
+
+  // Non-admins can only update personal contact info
+  if (isSelf) {
+    allowedUserFields = {};
+    if (userFields.phone !== undefined) allowedUserFields.phone = userFields.phone;
+    if (userFields.email !== undefined) allowedUserFields.email = userFields.email;
+
+    if (profile) {
+      allowedProfileFields = {};
+      if (profile.parentName !== undefined) allowedProfileFields.parentName = profile.parentName;
+      if (profile.parentPhone !== undefined) allowedProfileFields.parentPhone = profile.parentPhone;
+      if (profile.address !== undefined) allowedProfileFields.address = profile.address;
+    }
+  }
+
+  const roleName = existing.role?.name || existing.role;
+  const profileRelation = ROLE_PROFILE_RELATION[roleName];
+
+  const updated = await userRepository.updateUserWithProfile(
+    numId,
+    allowedUserFields,
+    profileRelation,
+    allowedProfileFields
+  );
 
   await auditLogRepository.log({
-    actorId,
+    actorId: requester?.id || numId,
     action: 'USER_UPDATED',
     entityType: 'User',
-    entityId: id,
+    entityId: numId,
   });
 
-  return toPublicUser(updated);
+  return toPublicUserWithProfile(updated);
 }
 
 async function deactivateUser(id, actorId) {

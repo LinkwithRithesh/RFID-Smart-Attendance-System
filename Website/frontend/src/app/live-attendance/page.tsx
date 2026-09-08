@@ -37,17 +37,11 @@ export default function LiveAttendancePage() {
   const { user } = useAuth();
   const role = user?.role || "FACULTY";
 
-  const [sessionActive, setSessionActive] = useState(true);
-  const [totalEnrolled] = useState(62);
-  const [presentCount, setPresentCount] = useState(54);
+  const [sessionActive, setSessionActive] = useState(false);
+  const [totalEnrolled] = useState(0);
+  const [presentCount, setPresentCount] = useState(0);
 
-  const [feed, setFeed] = useState<LiveFeedItem[]>([
-    { id: "1", time: "10:14:02 AM", studentName: "RITHESHWARAN A", rollNo: "2025105002", room: "Room 302", method: "AI Face Vision (CAM-302)", status: "PRESENT", confidence: 99.4 },
-    { id: "2", time: "10:13:48 AM", studentName: "SNEHA P", rollNo: "2025105014", room: "Room 302", method: "RFID (Turnstile 1)", status: "PRESENT", confidence: 100 },
-    { id: "3", time: "10:13:12 AM", studentName: "DINESH KUMAR M", rollNo: "2025105028", room: "Room 302", method: "AI Face Vision (CAM-302)", status: "PRESENT", confidence: 98.7 },
-    { id: "4", time: "10:12:30 AM", studentName: "KAVYA S", rollNo: "2025105035", room: "Room 302", method: "Dual Verification", status: "PRESENT", confidence: 99.8 },
-    { id: "5", time: "10:11:05 AM", studentName: "VIKRAM R", rollNo: "2025105041", room: "Room 302", method: "RFID (Turnstile 2)", status: "PRESENT", confidence: 100 },
-  ]);
+  const [feed, setFeed] = useState<LiveFeedItem[]>([]);
 
   // Emergency QR Modal State
   const [showQrModal, setShowQrModal] = useState(false);
@@ -55,8 +49,8 @@ export default function LiveAttendancePage() {
 
   // Manual Override Modal
   const [showManualModal, setShowManualModal] = useState(false);
-  const [manualRoll, setManualRoll] = useState("2025105049");
-  const [manualReason, setManualReason] = useState("Fingerprint unreadable / RFID card misplaced");
+  const [manualRoll, setManualRoll] = useState("");
+  const [manualReason, setManualReason] = useState("");
 
   // Rotating QR code simulator
   useEffect(() => {
@@ -70,73 +64,42 @@ export default function LiveAttendancePage() {
 
   const [isReconnecting, setIsReconnecting] = useState(false);
 
-  // Realtime SSE stream integration with graceful fallback
+  // Realtime SSE stream integration
   useEffect(() => {
     if (!sessionActive) return;
 
-    if (process.env.NEXT_PUBLIC_USE_MOCKS !== "true") {
-      // Connect to active attendance session SSE stream
-      const sessionId = "1";
-      const unsubscribeStream = realtimeService.subscribe(`session:${sessionId}`, (data: any) => {
-        if (!data) return;
-        const now = new Date();
-        const nowTime = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-
-        const newScan: LiveFeedItem = {
-          id: String(data.id || Date.now()),
-          time: data.time || nowTime,
-          studentName: data.studentName || data.user?.fullName || "Student",
-          rollNo: data.studentRoll || data.user?.studentProfile?.rollNumber || "2025105002",
-          room: data.room || "Room 302",
-          method: data.method || "RFID Turnstile",
-          status: data.status || "PRESENT",
-          confidence: data.confidence || 100,
-        };
-
-        setFeed((prev) => [newScan, ...prev.slice(0, 19)]);
-        setPresentCount((c) => Math.min(totalEnrolled, c + 1));
-      });
-
-      const unsubscribeConn = realtimeService.onConnectionChange((connected) => {
-        setIsReconnecting(!connected);
-      });
-
-      return () => {
-        unsubscribeStream();
-        unsubscribeConn();
-      };
-    }
-
-    // Mock fallback interval when offline or USE_MOCKS is explicitly true
-    const samplePool = [
-      { name: "ANANYA T", roll: "2025105052", method: "AI Face Vision (CAM-302)", conf: 99.1 },
-      { name: "BALAJI G", roll: "2025105058", method: "RFID (Turnstile 1)", conf: 100 },
-      { name: "CHITRA V", roll: "2025105063", method: "AI Face Vision (CAM-302)", conf: 98.5 },
-      { name: "DEEPAK S", roll: "2025105071", method: "Dual Verification", conf: 99.6 },
-    ];
-
-    const interval = setInterval(() => {
-      const pick = samplePool[Math.floor(Math.random() * samplePool.length)];
+    // Connect to active attendance session SSE stream
+    const sessionId = "1";
+    const unsubscribeStream = realtimeService.subscribe(`session:${sessionId}`, (data: any) => {
+      if (!data) return;
       const now = new Date();
       const nowTime = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
       const newScan: LiveFeedItem = {
-        id: Date.now().toString(),
-        time: nowTime,
-        studentName: pick.name,
-        rollNo: pick.roll,
-        room: "Room 302",
-        method: pick.method,
-        status: "PRESENT",
-        confidence: pick.conf,
+        id: String(data.id || Date.now()),
+        time: data.time || nowTime,
+        studentName: data.studentName || data.user?.fullName || "Student",
+        rollNo: data.studentRoll || data.user?.studentProfile?.rollNumber || "",
+        room: data.room || "Room 302",
+        method: data.method || "RFID Turnstile",
+        status: data.status || "PRESENT",
+        confidence: data.confidence || 100,
       };
 
       setFeed((prev) => [newScan, ...prev.slice(0, 19)]);
-      setPresentCount((c) => Math.min(totalEnrolled, c + 1));
-    }, 8000);
+      setPresentCount((c) => c + 1);
+    });
 
-    return () => clearInterval(interval);
-  }, [sessionActive, totalEnrolled]);
+    const unsubscribeConn = realtimeService.onConnectionChange((connected) => {
+      setIsReconnecting(!connected);
+    });
+
+    return () => {
+      unsubscribeStream();
+      unsubscribeConn();
+    };
+  }, [sessionActive]);
+
 
   const handleManualOverride = (e: React.FormEvent) => {
     e.preventDefault();

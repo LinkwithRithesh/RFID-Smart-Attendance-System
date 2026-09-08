@@ -19,8 +19,8 @@ import { useAuth } from "@/context/AuthContext";
 export const LoginCard: React.FC = () => {
   const { login, isLoading } = useAuth();
   const [activeRole, setActiveRole] = useState<"STUDENT" | "FACULTY" | "ADMIN">("STUDENT");
-  const [loginId, setLoginId] = useState("2025105002");
-  const [password, setPassword] = useState("student123");
+  const [loginId, setLoginId] = useState("student@campus.edu");
+  const [password, setPassword] = useState("ChangeMe123!");
   const [rememberMe, setRememberMe] = useState(true);
   const [captchaCode, setCaptchaCode] = useState("5qmmc");
   const [captchaInput, setCaptchaInput] = useState("5qmmc");
@@ -45,24 +45,27 @@ export const LoginCard: React.FC = () => {
   };
 
   useEffect(() => {
-    generateCaptcha();
+    const timer = setTimeout(() => {
+      generateCaptcha();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleRoleChange = (role: "STUDENT" | "FACULTY" | "ADMIN") => {
     setActiveRole(role);
     setError(null);
     if (role === "ADMIN") {
-      setLoginId("ADM001");
-      setPassword("admin123");
+      setLoginId("admin@campus.edu");
+      setPassword("ChangeMe123!");
       setOtpEmail("admin@campus.edu");
     } else if (role === "FACULTY") {
-      setLoginId("FAC001");
-      setPassword("faculty123");
-      setOtpEmail("ramesh@campus.edu");
+      setLoginId("faculty@campus.edu");
+      setPassword("ChangeMe123!");
+      setOtpEmail("faculty@campus.edu");
     } else {
-      setLoginId("2025105002");
-      setPassword("student123");
-      setOtpEmail("2025105002@student.annauniv.edu");
+      setLoginId("student@campus.edu");
+      setPassword("ChangeMe123!");
+      setOtpEmail("student@campus.edu");
     }
     generateCaptcha();
   };
@@ -178,7 +181,7 @@ export const LoginCard: React.FC = () => {
       <form onSubmit={handleLoginSubmit} className="space-y-4 text-xs">
         <div>
           <label className="block text-slate-700 font-bold mb-1">
-            Roll Number / Faculty Staff ID
+            Email Address
           </label>
           <div className="relative">
             <input

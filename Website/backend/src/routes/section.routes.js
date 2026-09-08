@@ -8,49 +8,104 @@ const prisma = require('../config/database');
 const router = express.Router();
 router.use(authenticate, authorize('ADMINISTRATOR', 'ADMIN'));
 
-// In-memory / initial sections backing (aligned with university departments and student profiles)
-let sectionsStore = [
-  { id: 1, name: 'Section A', code: 'SEC-A', department: 'Electronics & Communication Engg', semester: 3, capacity: 65, enrolledCount: 62 },
-  { id: 2, name: 'Section B', code: 'SEC-B', department: 'Computer Science & Engineering', semester: 3, capacity: 65, enrolledCount: 64 },
-  { id: 3, name: 'Section C', code: 'SEC-C', department: 'Information Technology', semester: 5, capacity: 60, enrolledCount: 58 },
-];
-
 // List sections
-router.get('/', (req, res) => {
-  return success(res, 200, 'Sections retrieved', sectionsStore);
+router.get('/', async (req, res, next) => {
+  try {
+    const sections = await prisma.section.findMany({
+      include: {
+        course: { select: { name: true, department: { select: { name: true } } } },
+      },
+    });
+
+    const formatted = sections.map((s) => ({
+      id: s.id,
+      name: s.name,
+      code: s.code,
+      department: s.course?.department?.name || 'Engineering',
+      semester: s.semester,
+      capacity: s.maxCapacity,
+      enrolledCount: 0,
+    }));
+
+    return success(res, 200, 'Sections retrieved', formatted);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Create section
-router.post('/', (req, res) => {
-  const { name, code, department, semester, capacity } = req.body;
-  const newSection = {
-    id: sectionsStore.length + 1,
-    name: name || 'Section New',
-    code: code || `SEC-${Date.now()}`,
-    department: department || 'Engineering',
-    semester: Number(semester) || 3,
-    capacity: Number(capacity) || 60,
-    enrolledCount: 0,
-  };
-  sectionsStore.push(newSection);
-  return success(res, 201, 'Section created', newSection);
+router.post('/', async (req, res, next) => {
+  try {
+    const { name, code, courseId, semester, capacity } = req.body;
+    let targetCourseId = Number(courseId);
+    if (!targetCourseId) {
+      const defaultCourse = await prisma.course.findFirst();
+      if (!defaultCourse) throw new ApiError(400, 'No course exists to attach section to');
+      targetCourseId = defaultCourse.id;
+    }
+
+    const section = await prisma.section.create({
+      data: {
+        name: name || 'Section A',
+        code: code || `SEC-${Date.now()}`,
+        courseId: targetCourseId,
+        semester: Number(semester) || 3,
+        maxCapacity: Number(capacity) || 60,
+      },
+      include: {
+        course: { select: { department: { select: { name: true } } } },
+      },
+    });
+
+    return success(res, 201, 'Section created', {
+      id: section.id,
+      name: section.name,
+      code: section.code,
+      department: section.course?.department?.name || 'Engineering',
+      semester: section.semester,
+      capacity: section.maxCapacity,
+      enrolledCount: 0,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Update section
-router.patch('/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const idx = sectionsStore.findIndex((s) => s.id === id);
-  if (idx === -1) throw new ApiError(404, 'Section not found');
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const { name, code, semester, capacity } = req.body;
 
-  sectionsStore[idx] = { ...sectionsStore[idx], ...req.body };
-  return success(res, 200, 'Section updated', sectionsStore[idx]);
+    const existing = await prisma.section.findUnique({ where: { id } });
+    if (!existing) throw new ApiError(404, 'Section not found');
+
+    const updated = await prisma.section.update({
+      where: { id },
+      data: {
+        ...(name && { name }),
+        ...(code && { code }),
+        ...(semester && { semester: Number(semester) }),
+        ...(capacity && { maxCapacity: Number(capacity) }),
+      },
+    });
+
+    return success(res, 200, 'Section updated', updated);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Delete section
-router.delete('/:id', (req, res) => {
-  const id = Number(req.params.id);
-  sectionsStore = sectionsStore.filter((s) => s.id !== id);
-  return success(res, 200, 'Section deleted');
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    await prisma.section.delete({ where: { id } });
+    return success(res, 200, 'Section deleted');
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;
+

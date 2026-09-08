@@ -22,7 +22,12 @@ router.get('/', async (req, res, next) => {
     const requests = await prisma.leaveRequest.findMany({
       where,
       include: {
-        user: true,
+        user: {
+          include: {
+            studentProfile: true,
+            department: true,
+          },
+        },
         approver: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -31,15 +36,15 @@ router.get('/', async (req, res, next) => {
     const data = requests.map((r) => ({
       id: `OD-${r.id}`,
       studentId: r.userId,
-      studentRoll: r.user.email.split('@')[0],
+      studentRoll: r.user.studentProfile?.rollNumber || r.user.email.split('@')[0],
       studentName: r.user.fullName,
-      department: 'Electronics & Communication Engg',
+      department: r.user.department?.name || 'Computer Science & Engineering',
       date: r.fromDate.toISOString().split('T')[0],
       endDate: r.toDate.toISOString().split('T')[0],
-      category: 'Symposium',
-      subject: 'DSP Lab & Microprocessors',
-      reason: r.reason || 'Attending Inter-College Technical Symposium',
-      documentName: 'OD_Approval_Form.pdf',
+      category: r.category || 'Symposium',
+      subject: r.subject || 'General Academic OD',
+      reason: r.reason || 'Attending Academic Event',
+      documentName: r.documentPath || 'OD_Approval_Form.pdf',
       status: r.status === 'PENDING' ? 'SUBMITTED' : r.status,
       facultyReviewer: r.approver?.fullName,
       submittedAt: r.createdAt.toISOString(),
@@ -54,13 +59,16 @@ router.get('/', async (req, res, next) => {
 // Submit new OD/Leave Request
 router.post('/', async (req, res, next) => {
   try {
-    const { fromDate, toDate, reason, subject, category } = req.body;
+    const { fromDate, toDate, reason, subject, category, documentPath } = req.body;
     const leave = await prisma.leaveRequest.create({
       data: {
         userId: req.user.id,
         fromDate: fromDate ? new Date(fromDate) : new Date(),
         toDate: toDate ? new Date(toDate) : new Date(),
         reason: reason || subject || 'Academic On-Duty Request',
+        category: category || 'Symposium',
+        subject: subject || 'General Academic OD',
+        documentPath: documentPath || null,
         status: 'PENDING',
       },
     });
@@ -86,8 +94,8 @@ router.patch('/:id/status', async (req, res, next) => {
     const effectiveRole = getEffectiveRole(req.user.role);
 
     if (status === 'FACULTY_APPROVED') {
-      if (effectiveRole !== 'FACULTY') {
-        throw new ApiError(403, 'Only Faculty members can provide first-level OD endorsement');
+      if (effectiveRole !== 'FACULTY' && effectiveRole !== 'ADMIN') {
+        throw new ApiError(403, 'Only Faculty members or Administrators can provide first-level OD endorsement');
       }
     } else if (status === 'APPROVED' || status === 'REJECTED') {
       if (effectiveRole !== 'ADMIN') {
@@ -100,17 +108,23 @@ router.patch('/:id/status', async (req, res, next) => {
     const leave = await prisma.leaveRequest.findUnique({ where: { id } });
     if (!leave) throw new ApiError(404, 'OD Request not found');
 
-    const prismaStatus = status === 'REJECTED' ? 'REJECTED' : 'APPROVED';
+    const updateData = {
+      status: status === 'FACULTY_APPROVED' ? 'FACULTY_APPROVED' : status === 'REJECTED' ? 'REJECTED' : 'APPROVED',
+      approvedBy: req.user.id,
+      decidedAt: new Date(),
+    };
+
+    if (status === 'FACULTY_APPROVED') {
+      updateData.facultyApprovedBy = req.user.id;
+      updateData.facultyApprovedAt = new Date();
+    }
+
     const updated = await prisma.leaveRequest.update({
       where: { id },
-      data: {
-        status: prismaStatus,
-        approvedBy: req.user.id,
-        decidedAt: new Date(),
-      },
+      data: updateData,
     });
 
-    // Notification Trigger: Notify the student on OD status change
+    // Notification Trigger
     await notificationService.notifyUser(
       leave.userId,
       'GENERAL',
@@ -129,3 +143,4 @@ router.patch('/:id/status', async (req, res, next) => {
 });
 
 module.exports = router;
+

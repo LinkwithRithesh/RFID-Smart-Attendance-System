@@ -6,7 +6,9 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Loader } from "@/components/common/Loader";
 import { useAuth } from "@/context/AuthContext";
 import { mockService } from "@/services/mockServices";
+import { apiClient } from "@/services/apiClient";
 import Link from "next/link";
+
 import {
   CalendarCheck,
   ClipboardCheck,
@@ -41,12 +43,16 @@ import {
 // -------------------------------------------------------------
 function StudentDashboard() {
   const { user } = useAuth();
-  const studentRoll = user?.userId || "2025105002";
-  const studentName = user?.name || "RITHESHWARAN A";
-  const department = user?.department || "Electronics & Communication Engg";
+  const studentRoll = user?.userId || "";
+  const studentName = user?.name || "";
+  const department = user?.department || "";
+
 
   const [stats, setStats] = useState(() => mockService.getOverallStudentStats(studentRoll));
   const [subjects, setSubjects] = useState(() => mockService.getSubjectAttendanceSummary(studentRoll));
+
+  const [todayClasses, setTodayClasses] = useState<any[]>([]);
+  const [trendData, setTrendData] = useState<any[]>([]);
 
   useEffect(() => {
     const update = () => {
@@ -54,24 +60,18 @@ function StudentDashboard() {
       setSubjects(mockService.getSubjectAttendanceSummary(studentRoll));
     };
     const unsubscribe = mockService.subscribe(update);
+
+    apiClient.get<any[]>("/dashboard/student/today")
+      .then(res => { if (res.data && Array.isArray(res.data)) setTodayClasses(res.data); })
+      .catch(() => {});
+
+    apiClient.get<any[]>("/dashboard/student/trend")
+      .then(res => { if (res.data && Array.isArray(res.data)) setTrendData(res.data); })
+      .catch(() => {});
+
     return () => unsubscribe();
   }, [studentRoll]);
 
-  const todayClasses = [
-    { period: "Period 1", code: "EC3401", subject: "Electromagnetic Fields", room: "Room 302", time: "09:00 - 10:00 AM", faculty: "Dr. S. Ramesh", status: "PRESENT", method: "RFID (Turnstile 1)" },
-    { period: "Period 2", code: "EC3402", subject: "Signals & Systems", room: "Room 302", time: "10:00 - 11:00 AM", faculty: "Dr. K. Arumugam", status: "PRESENT", method: "AI Face Vision (CAM-302)" },
-    { period: "Period 3", code: "EC3403", subject: "Analog Circuits Design", room: "Room 304", time: "11:15 - 12:15 PM", faculty: "Prof. N. Venkatesh", status: "UPCOMING", method: "Dual Verification" },
-    { period: "Period 4 & 5", code: "EC3411", subject: "Analog Circuits Lab", room: "Lab 2", time: "01:30 - 03:30 PM", faculty: "Prof. N. Venkatesh", status: "UPCOMING", method: "RFID Reader" },
-  ];
-
-  const trendData = [
-    { week: "Wk 1", attendance: 92 },
-    { week: "Wk 2", attendance: 88 },
-    { week: "Wk 3", attendance: 85 },
-    { week: "Wk 4", attendance: 79 },
-    { week: "Wk 5", attendance: 84 },
-    { week: "Wk 6", attendance: 87 },
-  ];
 
   return (
     <div className="space-y-6 font-sans">
@@ -262,7 +262,7 @@ function StudentDashboard() {
           <div className="flex items-center space-x-2">
             <Clock className="w-5 h-5 text-[#0B2C5C]" />
             <h3 className="text-sm font-extrabold text-[#0B2C5C] tracking-tight uppercase">
-              Today's Live Class Schedule
+              Today&apos;s Live Class Schedule
             </h3>
           </div>
           <span className="text-xs font-mono text-slate-500 font-bold">
@@ -339,13 +339,20 @@ function StudentDashboard() {
 // -------------------------------------------------------------
 function FacultyDashboard() {
   const { user } = useAuth();
-  const facultyName = user?.name || "Dr. S. Ramesh";
+  const facultyName = user?.name ?? "";
+  const [courses, setCourses] = useState<any[]>([]);
+
+  useEffect(() => {
+    apiClient.get<any[]>("/dashboard/faculty/courses")
+      .then(res => { if (res.data && Array.isArray(res.data)) setCourses(res.data); })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-6 font-sans">
       <PageHeader
         title={`Welcome back, ${facultyName}`}
-        subtitle="Department of Computer Science & Engineering • 3 scheduled lecture periods today"
+        subtitle={`${user?.department || "Academic Department"} • Faculty Console`}
         breadcrumb={[{ label: "Faculty Console" }]}
         categoryTag="FACULTY ACADEMIC CONSOLE"
         action={
@@ -358,6 +365,7 @@ function FacultyDashboard() {
           </Link>
         }
       />
+
 
       {/* Active Live Session Card with Lab Photo Strip */}
       <div className="bg-white rounded-2xl border border-[#E2E8F0] p-6 shadow-xs space-y-4">
@@ -513,12 +521,29 @@ function FacultyDashboard() {
 // 3. ADMIN DASHBOARD VIEW (Light Institutional Theme)
 // -------------------------------------------------------------
 function AdminDashboard() {
-  const [stats] = useState({
-    students: 3840,
-    faculty: 214,
-    devices: 48,
-    todayAttendance: 92.4,
+  const [stats, setStats] = useState({
+    students: 0,
+    faculty: 0,
+    devices: 0,
+    onlineDevices: 0,
+    todayAttendance: 0,
   });
+
+  useEffect(() => {
+    apiClient.get<any>("/dashboard/stats")
+      .then((res) => {
+        if (res.data) {
+          setStats({
+            students: res.data.students || 0,
+            faculty: res.data.faculty || 0,
+            devices: res.data.devices || 0,
+            onlineDevices: res.data.onlineDevices || 0,
+            todayAttendance: res.data.todayAttendance || 0,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-6 font-sans">
@@ -543,7 +568,7 @@ function AdminDashboard() {
         <div className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs hover-lift">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Enrolled Students</div>
           <div className="text-3xl font-black text-[#0B2C5C] mt-1 font-mono">{stats.students}</div>
-          <div className="text-[11px] text-emerald-700 font-bold mt-1">Across 8 Engineering Depts</div>
+          <div className="text-[11px] text-emerald-700 font-bold mt-1">Verified Student Profiles</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs hover-lift">
@@ -555,8 +580,9 @@ function AdminDashboard() {
         <div className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs hover-lift">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">ESP32 Fleet Hardware</div>
           <div className="text-3xl font-black text-[#0B2C5C] mt-1 font-mono">{stats.devices}</div>
-          <div className="text-[11px] text-emerald-700 font-bold mt-1">47 Online • 1 Maintenance</div>
+          <div className="text-[11px] text-emerald-700 font-bold mt-1">{stats.onlineDevices} Online</div>
         </div>
+
 
         <div className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs hover-lift">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Campus Turnout Rate</div>

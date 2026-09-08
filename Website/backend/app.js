@@ -20,10 +20,12 @@ const notificationRoutes = require('./src/routes/notification.routes');
 const announcementRoutes = require('./src/routes/announcement.routes');
 const documentRoutes = require('./src/routes/document.routes');
 const courseRoutes = require('./src/routes/course.routes');
+const departmentRoutes = require('./src/routes/departments.routes');
 const sectionRoutes = require('./src/routes/section.routes');
 const odRoutes = require('./src/routes/od.routes');
 const helpdeskRoutes = require('./src/routes/helpdesk.routes');
 const auditLogRoutes = require('./src/routes/auditLog.routes');
+const dashboardRoutes = require('./src/routes/dashboard.routes');
 const { errorHandler, notFoundHandler } = require('./src/middleware/errorHandler');
 
 const app = express();
@@ -65,7 +67,7 @@ app.use(express.urlencoded({ extended: true }));
 // Global rate limiter for human clients
 const generalLimiter = rateLimit({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+  max: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -106,10 +108,13 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/announcements', announcementRoutes);
 app.use('/api/v1/documents', documentRoutes);
 app.use('/api/v1/courses', courseRoutes);
+app.use('/api/v1/departments', departmentRoutes);
 app.use('/api/v1/sections', sectionRoutes);
 app.use('/api/v1/od-requests', odRoutes);
 app.use('/api/v1/helpdesk', helpdeskRoutes);
 app.use('/api/v1/audit-logs', auditLogRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
+
 
 // 404 + centralized error handler (must be last)
 app.use(notFoundHandler);
