@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/context/AuthContext";
-import { mockService } from "@/services/mockServices";
+import { api } from "@/services/api";
 import {
   User,
   Edit,
@@ -24,55 +24,90 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"view" | "edit">("view");
 
-  const [mobile, setMobile] = useState(user?.phone || "9345641567");
-  const [email, setEmail] = useState(user?.email || "2025105002@student.annauniv.edu");
-  const [address, setAddress] = useState("12, Gandhi Road, Adyar, Chennai - 600020");
-  const [parentMobile, setParentMobile] = useState("9840123456");
-  const [parentName, setParentName] = useState("Anand K.");
+  const [loading, setLoading] = useState(true);
+  const [mobile, setMobile] = useState("");
+  const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
+  const [parentMobile, setParentMobile] = useState("");
+  const [parentName, setParentName] = useState("");
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [fullProfile, setFullProfile] = useState<any>(null);
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    mockService.updateStudent(
-      user?.userId || "2025105002",
-      { phone: mobile, email, address, parentName, parentPhone: parentMobile },
-      { user: user?.name || "Student User", role: "STUDENT", reason: "Student profile self-update" }
-    );
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
-    setActiveTab("view");
+  useEffect(() => {
+    if (user?.id) {
+      loadProfile();
+    }
+  }, [user]);
+
+  const loadProfile = async () => {
+    try {
+      const res = await api.getUserProfile(user!.id);
+      if (res.success) {
+        setFullProfile(res.data);
+        setMobile(res.data.phone || "");
+        setEmail(res.data.email || "");
+        setAddress(res.data.profile?.address || "");
+        setParentMobile(res.data.profile?.parentPhone || "");
+        setParentName(res.data.profile?.parentName || "");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.updateUserProfile(user!.id, {
+        phone: mobile,
+        email,
+        address,
+        parentName,
+        parentPhone: parentMobile,
+      });
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+      setActiveTab("view");
+      loadProfile();
+    } catch (e: any) {
+      alert(e.message || "Failed to update profile");
+    }
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
       alert("New passwords do not match!");
       return;
     }
-    mockService.writeAuditLog({
-      user: user?.name || user?.userId || "Student User",
-      role: "STUDENT",
-      action: "PASSWORD_CHANGED",
-      target: user?.userId || "2025105002",
-      oldValue: "••••••••",
-      newValue: "•••••••• (HASHED)",
-      reason: "User self-service password update",
-    });
-    alert("Password changed successfully! Audit log entry recorded.");
-    setShowPasswordModal(false);
-    setOldPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
+    try {
+      await api.changePassword(oldPassword, newPassword);
+      alert("Password changed successfully!");
+      setShowPasswordModal(false);
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e: any) {
+      alert(e.message || "Failed to change password");
+    }
   };
 
   const handleDownloadPDF = () => {
     alert("Downloading official verified Student Profile PDF with biometric credentials...");
   };
+
+  if (loading) return <DashboardShell><div className="p-8 text-center text-slate-500 font-bold">Loading...</div></DashboardShell>;
+
+  const courseInfo = fullProfile?.profile?.course;
+  const admissionYear = fullProfile?.profile?.admissionYear;
+  const currentSemester = fullProfile?.profile?.currentSemester;
 
   return (
     <DashboardShell>
@@ -133,35 +168,47 @@ export default function ProfilePage() {
           {/* Left: Identity Card */}
           <div className="lg:col-span-4 bg-white rounded-2xl border border-[#E2E8F0] p-6 shadow-xs text-center space-y-4">
             <div className="w-24 h-24 rounded-2xl bg-[#0B2C5C] text-white flex items-center justify-center font-black text-3xl mx-auto shadow-md">
-              {user?.name?.charAt(0) || "U"}
+              {fullProfile?.fullName?.charAt(0) || "U"}
             </div>
             <div>
-              <h2 className="text-lg font-black text-[#0B2C5C]">{user?.name || "User Profile"}</h2>
+              <h2 className="text-lg font-black text-[#0B2C5C]">{fullProfile?.fullName || "User Profile"}</h2>
               <div className="text-xs font-mono font-bold text-slate-500 mt-0.5">
-                ID / Roll No: {user?.userId || "N/A"}
+                ID / Roll No: {fullProfile?.profile?.rollNumber || "N/A"}
               </div>
 
               <span className="inline-block mt-2 px-3 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200">
-                Active Student • Semester 3
+                Active {fullProfile?.role === "STUDENT" ? "Student" : fullProfile?.role} {currentSemester ? `• Semester ${currentSemester}` : ""}
               </span>
             </div>
 
             <div className="pt-4 border-t border-slate-100 space-y-2 text-left text-xs">
               <div className="flex justify-between">
-                <span className="text-slate-500">Degree:</span>
-                <strong className="text-slate-800">B.E. ECE</strong>
+                <span className="text-slate-500">Department:</span>
+                <strong className="text-slate-800">{fullProfile?.departmentName || "General"}</strong>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Batch:</span>
-                <strong className="text-slate-800">2024 - 2028</strong>
-              </div>
+              {courseInfo && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Degree:</span>
+                  <strong className="text-slate-800">{courseInfo?.name || courseInfo?.code || "N/A"}</strong>
+                </div>
+              )}
+              {admissionYear && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Batch:</span>
+                  <strong className="text-slate-800">{admissionYear} - {admissionYear + 4}</strong>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-500">RFID UID:</span>
-                <strong className="font-mono text-[#0B2C5C]">E2-80-68-9A-00</strong>
+                <strong className="font-mono text-[#0B2C5C]">{fullProfile?.rfidCardId || "Not Registered"}</strong>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Face Vision:</span>
-                <span className="text-emerald-700 font-bold">Enrolled (512D Vector)</span>
+                {fullProfile?.hasFaceEmbedding ? (
+                  <span className="text-emerald-700 font-bold">Enrolled</span>
+                ) : (
+                  <span className="text-rose-700 font-bold">Not Registered</span>
+                )}
               </div>
             </div>
           </div>
@@ -179,23 +226,23 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
                   <div className="text-[10px] font-bold text-slate-500 uppercase">Student Email</div>
-                  <div className="font-bold text-slate-900">{email}</div>
+                  <div className="font-bold text-slate-900">{email || "N/A"}</div>
                 </div>
                 <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
                   <div className="text-[10px] font-bold text-slate-500 uppercase">Student Mobile</div>
-                  <div className="font-bold text-slate-900 font-mono">{mobile}</div>
+                  <div className="font-bold text-slate-900 font-mono">{mobile || "N/A"}</div>
                 </div>
                 <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
                   <div className="text-[10px] font-bold text-slate-500 uppercase">Parent / Guardian Name</div>
-                  <div className="font-bold text-slate-900">{parentName}</div>
+                  <div className="font-bold text-slate-900">{parentName || "N/A"}</div>
                 </div>
                 <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
                   <div className="text-[10px] font-bold text-slate-500 uppercase">Parent Mobile (SMS)</div>
-                  <div className="font-bold text-slate-900 font-mono">{parentMobile}</div>
+                  <div className="font-bold text-slate-900 font-mono">{parentMobile || "N/A"}</div>
                 </div>
                 <div className="sm:col-span-2 p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
                   <div className="text-[10px] font-bold text-slate-500 uppercase">Residential Address</div>
-                  <div className="font-bold text-slate-900">{address}</div>
+                  <div className="font-bold text-slate-900">{address || "N/A"}</div>
                 </div>
               </div>
             ) : (
@@ -272,7 +319,7 @@ export default function ProfilePage() {
             <div className="bg-white border border-[#E2E8F0] rounded-2xl max-w-sm w-full shadow-2xl p-6 space-y-4 text-slate-800">
               <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                 <h3 className="text-sm font-black text-[#0B2C5C]">Change Account Password</h3>
-                <button onClick={() => setShowPasswordModal(false)} className="text-slate-400 hover:text-slate-700">✕</button>
+                <button type="button" onClick={() => setShowPasswordModal(false)} className="text-slate-400 hover:text-slate-700">×</button>
               </div>
 
               <form onSubmit={handlePasswordChange} className="space-y-3 text-xs">

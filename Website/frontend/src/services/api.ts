@@ -1,4 +1,4 @@
-import { apiClient } from "./apiClient";
+﻿import { apiClient } from "./apiClient";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
@@ -24,7 +24,7 @@ export interface User {
 }
 
 export interface StudentRow {
-  id: number;           // users.id — use for update/delete
+  id: number;           // users.id â€” use for update/delete
   rollNumber: string;   // profile.rollNumber
   fullName: string;
   email: string;
@@ -146,6 +146,14 @@ export const api = {
     }
   },
 
+  async changePassword(oldPassword: string, newPassword: string) {
+    const data = await apiFetch("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ oldPassword, newPassword }),
+    });
+    return { success: true, message: data.message };
+  },
+
   // ---- Users (Students & Faculty) ----
   async getUsers(params?: {
     role?: string;
@@ -176,12 +184,33 @@ export const api = {
     };
   },
 
+  async getUserProfile(id: number) {
+    const res = await apiFetch(`/users/${id}`);
+    return { success: true, data: res.data };
+  },
+
   async createUser(userData: any) {
     const data = await apiFetch("/users", {
       method: "POST",
       body: JSON.stringify(userData),
     });
     return { success: true, data: mapBackendUserToFrontend(data.data), message: "User created" };
+  },
+
+  async updateUserProfile(id: number, userData: any) {
+    const data = await apiFetch(`/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        phone: userData.phone,
+        email: userData.email,
+        profile: {
+          parentName: userData.parentName,
+          parentPhone: userData.parentPhone,
+          address: userData.address,
+        }
+      }),
+    });
+    return { success: true, data: data.data };
   },
 
   async updateUser(id: number, userData: any) {
@@ -278,6 +307,73 @@ export const api = {
   },
 
   // ---- Devices ----
+
+  // ---- Dashboard Analytics ----
+  async getAdminStats() {
+    const data = await apiFetch("/dashboard/stats");
+    return { success: true, data: data.data };
+  },
+  async getStudentStats() {
+    const data = await apiFetch("/dashboard/student/stats");
+    return { success: true, data: data.data };
+  },
+
+  // ---- OD Requests ----
+  async getODRequests() {
+    const data = await apiFetch("/od");
+    return { success: true, data: data.data };
+  },
+  async submitODRequest(payload: any) {
+    const data = await apiFetch("/od", { method: "POST", body: JSON.stringify(payload) });
+    return { success: true, data: data.data };
+  },
+  async updateODStatus(id: number, status: string, notes?: string) {
+    const data = await apiFetch(`/od/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, remarks: notes }) });
+    return { success: true, data: data.data };
+  },
+
+  // ---- Helpdesk ----
+  async getTickets() {
+    const data = await apiFetch("/helpdesk");
+    return { success: true, data: data.data };
+  },
+  async createTicket(payload: any) {
+    const data = await apiFetch("/helpdesk", { method: "POST", body: JSON.stringify(payload) });
+    return { success: true, data: data.data };
+  },
+  async replyToTicket(id: number, payload: any) {
+    const data = await apiFetch(`/helpdesk/${id}/replies`, { method: "POST", body: JSON.stringify(payload) });
+    return { success: true, data: data.data };
+  },
+  async updateTicketStatus(id: number, status: string, notes?: string) {
+    const data = await apiFetch(`/helpdesk/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, notes }) });
+    return { success: true, data: data.data };
+  },
+
+  // ---- Audit Logs ----
+  async getAuditLogs() {
+    const data = await apiFetch("/audit-logs");
+    return { success: true, data: data.data };
+  },
+
+  // ---- Analytics & Anomalies ----
+  async getAnomalies() {
+    const data = await apiFetch("/analytics/anomalies");
+    return { success: true, data: data.data };
+  },
+  
+  // ---- Attendance Extended ----
+  async getOverallStudentStats(rollNumber?: string) {
+    return this.getStudentStats(); // fallback to dashboard stats
+  },
+  async getSubjectAttendanceSummary(rollNumber?: string) {
+    // Return empty for now if no specific route
+    return { success: true, data: [] };
+  },
+  async getClassrooms() {
+    return { success: true, data: [] };
+  },
+
   async getDevices() {
     const data = await apiFetch("/devices");
     return { success: true, data: data.data.devices };

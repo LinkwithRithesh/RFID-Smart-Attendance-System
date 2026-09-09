@@ -3,20 +3,26 @@
 import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { mockService } from "@/services/mockServices";
+import { apiClient } from "@/services/apiClient";
 import { AuditLogItem } from "@/services/mockData";
 import { History, Shield, Search, FileSpreadsheet, Lock } from "lucide-react";
 
 export default function AuditLogsPage() {
-  const [logs, setLogs] = useState<AuditLogItem[]>(() => mockService.getAuditLogs());
+  
+  const [logs, setLogs] = useState<any[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    apiClient.get("/audit-logs").then(res => {
+      if(mounted && res.data?.logs) setLogs(res.data.logs);
+      else if(mounted && res.data) setLogs(res.data);
+    });
+    return () => { mounted = false; };
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterAction, setFilterAction] = useState("ALL");
 
-  useEffect(() => {
-    const update = () => setLogs(mockService.getAuditLogs());
-    const unsubscribe = mockService.subscribe(update);
-    return () => unsubscribe();
-  }, []);
+  
 
   const filteredLogs = logs.filter((log) => {
     const matchesSearch =

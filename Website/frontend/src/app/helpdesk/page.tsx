@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/context/AuthContext";
-import { mockService } from "@/services/mockServices";
+import { apiClient } from "@/services/apiClient";
 import { HelpDeskTicket } from "@/services/mockData";
 import {
   HelpCircle,
@@ -26,9 +26,11 @@ export default function HelpDeskPage() {
   const userId = user?.userId || "2025105002";
   const userName = user?.name || "Student User";
 
-  const [tickets, setTickets] = useState<HelpDeskTicket[]>(() =>
-    mockService.getTickets(role as any, userId)
-  );
+    const [tickets, setTickets] = useState<any[]>([]);
+  const fetchTickets = () => {
+    apiClient.get("/helpdesk").then(res => setTickets(res.data?.tickets || res.data || []));
+  };
+  useEffect(() => { fetchTickets(); }, [role, userId]);
   const [selectedTicket, setSelectedTicket] = useState<HelpDeskTicket | null>(null);
   const [replyMessage, setReplyMessage] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -39,53 +41,27 @@ export default function HelpDeskPage() {
   const [priority, setPriority] = useState<HelpDeskTicket["priority"]>("HIGH");
   const [initialMessage, setInitialMessage] = useState("");
 
-  useEffect(() => {
-    const update = () => {
-      const all = mockService.getTickets(role as any, userId);
-      setTickets(all);
-      if (selectedTicket) {
-        const found = all.find((t) => t.id === selectedTicket.id);
-        if (found) setSelectedTicket(found);
-      }
-    };
-    const unsubscribe = mockService.subscribe(update);
-    return () => unsubscribe();
-  }, [role, userId, selectedTicket]);
+  
 
-  const handleCreateTicket = (e: React.FormEvent) => {
+  const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
-    const created = mockService.createTicket({
-      creatorId: userId,
-      creatorName: userName,
-      creatorRole: role as any,
-      category,
-      priority,
-      subject,
-      initialMessage,
-    });
+    const created = await apiClient.post("/helpdesk", { subject, category, description: initialMessage, priority }); fetchTickets();
     setShowCreateModal(false);
     setSubject("");
     setInitialMessage("");
-    setSelectedTicket(created);
+    setSelectedTicket(created.data?.ticket || created.data || null);
   };
 
-  const handleSendReply = (e: React.FormEvent) => {
+  const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTicket || !replyMessage.trim()) return;
 
-    mockService.replyToTicket(selectedTicket.id, {
-      senderName: userName,
-      senderRole: role as any,
-      text: replyMessage,
-    });
+    await apiClient.post(`/helpdesk/${selectedTicket.id}/replies`, { message: replyMessage }); fetchTickets();
     setReplyMessage("");
   };
 
-  const handleResolveTicket = (ticketId: string) => {
-    mockService.updateTicketStatus(ticketId, "RESOLVED", {
-      user: userName,
-      role: role as any,
-    });
+  const handleResolveTicket = async (ticketId: string) => {
+    await apiClient.patch(`/helpdesk/${ticketId}/status`, { status: "RESOLVED", response: "Issue investigated and resolved by admin." }); fetchTickets();
   };
 
   return (
@@ -258,7 +234,7 @@ export default function HelpDeskPage() {
             <div className="bg-white border border-[#E2E8F0] rounded-2xl max-w-md w-full shadow-2xl p-6 space-y-4 text-slate-800">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <h3 className="text-sm font-black text-[#0B2C5C]">Create New Support Ticket</h3>
-                <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-700">✕</button>
+                <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-700">âœ•</button>
               </div>
 
               <form onSubmit={handleCreateTicket} className="space-y-3 text-xs">
@@ -323,3 +299,7 @@ export default function HelpDeskPage() {
     </DashboardShell>
   );
 }
+
+
+
+

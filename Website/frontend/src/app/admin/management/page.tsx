@@ -1,12 +1,10 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/context/AuthContext";
 import { api, StudentRow } from "@/services/api";
-import { mockService } from "@/services/mockServices";
-import { Faculty, Course } from "@/services/mockData";
 import {
   Users,
   BookOpen,
@@ -17,6 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Edit,
 } from "lucide-react";
 
 interface DepartmentOption {
@@ -42,14 +41,49 @@ export default function AdminManagementPage() {
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [studentError, setStudentError] = useState<string | null>(null);
 
-  // Mock Faculty & Courses (Untouched)
-  const [faculty, setFaculty] = useState<Faculty[]>(() => mockService.getFaculty());
-  const [courses, setCourses] = useState<Course[]>(() => mockService.getCourses());
+  
+  const [faculty, setFaculty] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loadingFaculty, setLoadingFaculty] = useState(true);
+  const [loadingCourses, setLoadingCourses] = useState(true);
+
+  const loadFaculty = useCallback(async () => {
+    setLoadingFaculty(true);
+    try {
+      const res = await api.getUsers({ role: "FACULTY", limit: 1000 });
+      if (res.success) setFaculty(res.data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingFaculty(false);
+    }
+  }, []);
+
+  const loadCourses = useCallback(async () => {
+    setLoadingCourses(true);
+    try {
+      const res = await api.getCoursesByDepartment();
+      if (res.success) setCourses(res.data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingCourses(false);
+    }
+  }, []);
+
 
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [newMobile, setNewMobile] = useState("");
+  const [newParentName, setNewParentName] = useState("");
+  const [newParentMobile, setNewParentMobile] = useState("");
+  const [newAddress, setNewAddress] = useState("");
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editStudentId, setEditStudentId] = useState<number | null>(null);
+
 
   // Departments and Courses for Enrollment Form
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
@@ -85,15 +119,12 @@ export default function AdminManagementPage() {
     loadStudents();
   }, [loadStudents]);
 
-  // Sync mock faculty and courses subscriptions
+  
   useEffect(() => {
-    const update = () => {
-      setFaculty(mockService.getFaculty());
-      setCourses(mockService.getCourses());
-    };
-    const unsubscribe = mockService.subscribe(update);
-    return () => unsubscribe();
-  }, []);
+    loadFaculty();
+    loadCourses();
+  }, [loadFaculty, loadCourses]);
+
 
   // Fetch departments when modal opens
   useEffect(() => {
@@ -169,6 +200,11 @@ export default function AdminManagementPage() {
     setNewRfid("");
     setNewSemester(1);
     setNewAdmissionYear(new Date().getFullYear());
+    setNewMobile("");
+    setNewParentName("");
+    setNewParentMobile("");
+    setNewAddress("");
+
     setFormError(null);
     setShowAddModal(true);
   };
@@ -201,12 +237,16 @@ export default function AdminManagementPage() {
         departmentId: Number(newDeptId),
         rfidCardId: newRfid.trim() || undefined,
         role: "STUDENT",
-        profile: {
-          rollNumber: newRoll.trim(),
-          courseId: Number(newCourseId),
-          currentSemester: Number(newSemester),
-          admissionYear: Number(newAdmissionYear),
-        },
+        phone: newMobile.trim() || undefined,
+          profile: {
+            rollNumber: newRoll.trim(),
+            courseId: Number(newCourseId),
+            currentSemester: Number(newSemester),
+            admissionYear: Number(newAdmissionYear),
+            parentName: newParentName.trim() || undefined,
+            parentPhone: newParentMobile.trim() || undefined,
+            address: newAddress.trim() || undefined,
+          },
       });
 
       setShowAddModal(false);
@@ -214,6 +254,62 @@ export default function AdminManagementPage() {
     } catch (err: any) {
       console.error("Enrollment failed:", err);
       setFormError(err.message || "Failed to enroll student. Please check the form data.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+
+  const handleEditStudentClick = async (s: StudentRow) => {
+    try {
+      const res = await api.getUserProfile(s.id);
+      if (res.success) {
+        setEditStudentId(s.id);
+        setNewName(res.data.fullName || "");
+        setNewEmail(res.data.email || "");
+        setNewMobile(res.data.phone || "");
+        setNewRfid(res.data.rfidCardId || "");
+        setNewRoll(res.data.profile?.rollNumber || "");
+        setNewDeptId(res.data.departmentId || departments[0]?.id || 1);
+        setNewCourseId(res.data.profile?.courseId || deptCourses[0]?.id || 1);
+        setNewSemester(res.data.profile?.currentSemester || 1);
+        setNewAdmissionYear(res.data.profile?.admissionYear || new Date().getFullYear());
+        setNewParentName(res.data.profile?.parentName || "");
+        setNewParentMobile(res.data.profile?.parentPhone || "");
+        setNewAddress(res.data.profile?.address || "");
+        setFormError(null);
+        setShowEditModal(true);
+      }
+    } catch (e: any) {
+      alert("Failed to load student details");
+    }
+  };
+
+  const handleUpdateStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    if (!editStudentId) return;
+
+    setSubmitting(true);
+    try {
+      await api.updateUserProfile(editStudentId, {
+        phone: newMobile.trim() || undefined,
+        email: newEmail.trim() || undefined,
+        parentName: newParentName.trim() || undefined,
+        parentPhone: newParentMobile.trim() || undefined,
+        address: newAddress.trim() || undefined,
+      });
+
+      await api.updateUser(editStudentId, {
+        name: newName.trim(),
+        rfidTag: newRfid.trim() || undefined,
+        status: "ACTIVE",
+      });
+
+      setShowEditModal(false);
+      await loadStudents();
+    } catch (err: any) {
+      setFormError(err.message || "Failed to update student.");
     } finally {
       setSubmitting(false);
     }
@@ -364,7 +460,7 @@ export default function AdminManagementPage() {
                       <td className="p-3.5">
                         {s.hasFaceEmbedding ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                            ✓ Enrolled
+                            âœ“ Enrolled
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
@@ -379,7 +475,14 @@ export default function AdminManagementPage() {
                           title="Deactivate Student"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                          </button>
+                          <button
+                            onClick={() => handleEditStudentClick(s)}
+                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                            title="Edit Student"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
                       </td>
                     </tr>
                   ))
@@ -411,9 +514,9 @@ export default function AdminManagementPage() {
                       <div className="font-bold text-slate-900">{f.name}</div>
                       <div className="text-[10px] text-slate-500">{f.email}</div>
                     </td>
-                    <td className="p-3.5 text-slate-600">{f.department}</td>
-                    <td className="p-3.5 font-semibold text-slate-700">{f.designation}</td>
-                    <td className="p-3.5 font-mono text-slate-600">{f.assignedCourses.join(", ")}</td>
+                    <td className="p-3.5 text-slate-600">{f.departmentName || f.department?.name || "General"}</td>
+                    <td className="p-3.5 font-semibold text-slate-700">{f.designation || "Assistant Professor"}</td>
+                    <td className="p-3.5 font-mono text-slate-600">{(f.assignedCourses || []).join(", ")}</td>
                     <td className="p-3.5 text-right">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                         Active Staff
@@ -445,10 +548,10 @@ export default function AdminManagementPage() {
                   <tr key={c.code} className="hover:bg-slate-50 transition-colors">
                     <td className="p-3.5 font-mono font-bold text-[#0B2C5C]">{c.code}</td>
                     <td className="p-3.5 font-bold text-slate-900">{c.name}</td>
-                    <td className="p-3.5 text-slate-600">{c.department}</td>
-                    <td className="p-3.5 font-mono text-slate-700">{c.credits} Credits</td>
-                    <td className="p-3.5">{c.semester}</td>
-                    <td className="p-3.5 text-right font-mono font-bold text-[#0B2C5C]">{c.credits * 15}</td>
+                    <td className="p-3.5 text-slate-600">{c.department?.name || c.departmentName || "General"}</td>
+                    <td className="p-3.5 font-mono text-slate-700">{c.credits || 3} Credits</td>
+                    <td className="p-3.5">{c.semester || 1}</td>
+                    <td className="p-3.5 text-right font-mono font-bold text-[#0B2C5C]">{(c.credits || 3) * 15}</td>
                   </tr>
                 ))}
               </tbody>
@@ -467,7 +570,7 @@ export default function AdminManagementPage() {
                   className="text-slate-400 hover:text-slate-700 font-bold"
                   type="button"
                 >
-                  ✕
+                  âœ•
                 </button>
               </div>
 
@@ -479,7 +582,26 @@ export default function AdminManagementPage() {
               )}
 
               <form onSubmit={handleAddStudent} className="space-y-3 text-xs">
+                
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">Student Mobile</label>
+                    <input type="text" value={newMobile} onChange={(e) => setNewMobile(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">Parent Name</label>
+                    <input type="text" value={newParentName} onChange={(e) => setNewParentName(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">Parent Mobile</label>
+                    <input type="text" value={newParentMobile} onChange={(e) => setNewParentMobile(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">Address</label>
+                    <input type="text" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200" />
+                  </div>
+                </div>
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-slate-700 font-bold mb-1">Roll Number *</label>
                     <input
@@ -570,7 +692,7 @@ export default function AdminManagementPage() {
                       className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none focus:border-[#0B2C5C] disabled:bg-slate-100 disabled:text-slate-400"
                     >
                       {deptCourses.length === 0 ? (
-                        <option value="">No courses found — add courses first</option>
+                        <option value="">No courses found â€” add courses first</option>
                       ) : (
                         deptCourses.map((c) => (
                           <option key={c.id} value={c.id}>
@@ -646,3 +768,7 @@ export default function AdminManagementPage() {
     </DashboardShell>
   );
 }
+
+
+
+

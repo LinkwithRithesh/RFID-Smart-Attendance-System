@@ -1,10 +1,9 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/context/AuthContext";
-import { mockService } from "@/services/mockServices";
 import { apiClient } from "@/services/apiClient";
 import {
   CalendarCheck,
@@ -27,8 +26,16 @@ export default function AttendancePage() {
   const studentRoll = user?.userId || "2025105002";
 
   const [activeTab, setActiveTab] = useState<"details" | "statement">("details");
-  const [subjects, setSubjects] = useState(() => mockService.getSubjectAttendanceSummary(studentRoll));
-  const [overallStats, setOverallStats] = useState(() => mockService.getOverallStudentStats(studentRoll));
+  
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [overallStats, setOverallStats] = useState<any>(null);
+  useEffect(() => {
+    let mounted = true;
+    apiClient.get("/attendance/summary").then(res => { if(mounted) setSubjects(res.data?.subjects || []); });
+    apiClient.get("/dashboard/student/stats").then(res => { if(mounted) setOverallStats(res.data); });
+    return () => { mounted = false; };
+  }, [studentRoll]);
+
 
   // Selected subject for monthly calendar modal
   const [selectedSubject, setSelectedSubject] = useState<any>(null);
@@ -42,19 +49,12 @@ export default function AttendancePage() {
   const [dateFrom, setDateFrom] = useState("2026-07-01");
   const [dateTo, setDateTo] = useState("2026-09-04");
 
-  useEffect(() => {
-    const update = () => {
-      setSubjects(mockService.getSubjectAttendanceSummary(studentRoll));
-      setOverallStats(mockService.getOverallStudentStats(studentRoll));
-    };
-    const unsubscribe = mockService.subscribe(update);
-    return () => unsubscribe();
-  }, [studentRoll]);
+  
 
   useEffect(() => {
     if (selectedSubject) {
       const timer = setTimeout(() => {
-        const logs = mockService.getAttendanceCalendar(studentRoll, selectedSubject.code, 7, 2026);
+        const logs: any[] = []; // TODO fetch calendar logs from backend
         setCalendarLogs(logs);
         setSelectedDate(8);
       }, 0);
@@ -227,7 +227,7 @@ export default function AttendancePage() {
                 <div>
                   <h3 className="text-base font-black text-[#0B2C5C]">Official Academic Attendance Statement</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Generated for Student Roll No: <span className="font-mono font-bold text-[#0B2C5C]">{studentRoll}</span> • Verified against CeGov Audit Ledger
+                    Generated for Student Roll No: <span className="font-mono font-bold text-[#0B2C5C]">{studentRoll}</span> â€¢ Verified against CeGov Audit Ledger
                   </p>
                 </div>
                 <div className="flex items-center space-x-3">
@@ -295,7 +295,7 @@ export default function AttendancePage() {
                     {selectedSubject.code}
                   </span>
                   <h3 className="text-base font-black text-[#0B2C5C] mt-1">{selectedSubject.name}</h3>
-                  <p className="text-xs text-slate-500">Monthly Attendance Calendar • August 2026</p>
+                  <p className="text-xs text-slate-500">Monthly Attendance Calendar â€¢ August 2026</p>
                 </div>
                 <button
                   onClick={() => setSelectedSubject(null)}
@@ -335,7 +335,7 @@ export default function AttendancePage() {
                     >
                       <span>{day}</span>
                       <span className="text-[8px] mt-0.5 uppercase">
-                        {isPresent ? "✓" : isAbsent ? "✕" : isWeekend ? "—" : "•"}
+                        {isPresent ? "âœ“" : isAbsent ? "âœ•" : isWeekend ? "â€”" : "â€¢"}
                       </span>
                     </button>
                   );
@@ -358,10 +358,10 @@ export default function AttendancePage() {
                     </span>
                   </div>
                   <div className="text-slate-600">
-                    Timestamp: <strong className="text-slate-800">{calendarLogs[selectedDate].timestamp}</strong> • Method: <strong className="text-[#0B2C5C]">{calendarLogs[selectedDate].method}</strong>
+                    Timestamp: <strong className="text-slate-800">{calendarLogs[selectedDate].timestamp}</strong> â€¢ Method: <strong className="text-[#0B2C5C]">{calendarLogs[selectedDate].method}</strong>
                   </div>
                   <div className="text-slate-500 text-[11px]">
-                    Room: {calendarLogs[selectedDate].room} • Match Confidence: {calendarLogs[selectedDate].confidence}%
+                    Room: {calendarLogs[selectedDate].room} â€¢ Match Confidence: {calendarLogs[selectedDate].confidence}%
                   </div>
                 </div>
               )}
@@ -372,3 +372,4 @@ export default function AttendancePage() {
     </DashboardShell>
   );
 }
+

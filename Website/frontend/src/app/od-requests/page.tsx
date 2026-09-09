@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/context/AuthContext";
-import { mockService } from "@/services/mockServices";
+import { apiClient } from "@/services/apiClient";
 import {
   FileCheck2,
   Plus,
@@ -26,9 +26,9 @@ export default function ODRequestsPage() {
   const studentName = user?.name || "";
 
 
-  const [requests, setRequests] = useState(() =>
-    role === "STUDENT" ? mockService.getODRequests(studentRoll) : mockService.getODRequests()
-  );
+  const [requests, setRequests] = useState<any[]>([]);
+  const fetchRequests = () => apiClient.get("/od").then(r => setRequests(r.data?.requests || r.data || []));
+  useEffect(() => { fetchRequests(); }, []);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
 
   // Form states
@@ -39,40 +39,20 @@ export default function ODRequestsPage() {
   const [reason, setReason] = useState("");
   const [fileName, setFileName] = useState("ieee_symposium_invite.pdf");
 
-  useEffect(() => {
-    const update = () => {
-      setRequests(role === "STUDENT" ? mockService.getODRequests(studentRoll) : mockService.getODRequests());
-    };
-    const unsubscribe = mockService.subscribe(update);
-    return () => unsubscribe();
-  }, [role, studentRoll]);
+  
 
-  const handleSubmitOD = (e: React.FormEvent) => {
+  const handleSubmitOD = async (e: React.FormEvent) => {
     e.preventDefault();
-    mockService.submitODRequest({
-      studentRoll,
-      studentName,
-      department: user?.department || "Electronics & Communication Engg",
-      date,
-      endDate,
-      category,
-      subject,
-      reason,
-      documentName: fileName,
-    });
+    await apiClient.post("/od", { type: category, startDate: date, endDate, reason }); fetchRequests();
     setShowSubmitModal(false);
     setReason("");
   };
 
-  const handleUpdateStatus = (
+  const handleUpdateStatus = async (
     id: string,
     status: "FACULTY_APPROVED" | "APPROVED" | "REJECTED"
   ) => {
-    mockService.updateODStatus(id, status, {
-      user: user?.name || user?.userId || "Official Reviewer",
-      role: role as "FACULTY" | "ADMIN",
-      reason: "Document verified through institutional verification queue",
-    });
+    await apiClient.patch(`/od/${id}/status`, { status, remarks: "Reviewed via institutional portal" }); fetchRequests();
   };
 
   return (
@@ -132,7 +112,7 @@ export default function ODRequestsPage() {
                           </span>
                         </div>
                         <div className="text-xs text-slate-500 mt-0.5">
-                          {req.department} • Affected: <strong className="text-slate-700">{req.subject}</strong>
+                          {req.department} â€¢ Affected: <strong className="text-slate-700">{req.subject}</strong>
                         </div>
                       </div>
                     </div>
@@ -153,13 +133,13 @@ export default function ODRequestsPage() {
                   {/* 3-Stage Progress Timeline */}
                   <div className="grid grid-cols-3 gap-2 p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] text-center text-[11px]">
                     <div className={`p-2 rounded-lg ${stage1_submitted ? "bg-white text-emerald-700 font-bold shadow-xs" : "text-slate-400"}`}>
-                      ✓ 1. Submitted
+                      âœ“ 1. Submitted
                     </div>
                     <div className={`p-2 rounded-lg ${stage2_facultyRecommended ? "bg-white text-emerald-700 font-bold shadow-xs" : "text-slate-400"}`}>
-                      {stage2_facultyRecommended ? "✓ 2. Faculty Endorsed" : "• 2. Faculty Review"}
+                      {stage2_facultyRecommended ? "âœ“ 2. Faculty Endorsed" : "â€¢ 2. Faculty Review"}
                     </div>
                     <div className={`p-2 rounded-lg ${stage3_hodApproved ? "bg-white text-emerald-700 font-bold shadow-xs" : "text-slate-400"}`}>
-                      {stage3_hodApproved ? "✓ 3. HOD Stamped" : "• 3. HOD Decision"}
+                      {stage3_hodApproved ? "âœ“ 3. HOD Stamped" : "â€¢ 3. HOD Decision"}
                     </div>
                   </div>
 
@@ -210,7 +190,7 @@ export default function ODRequestsPage() {
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <h3 className="text-sm font-black text-[#0B2C5C]">Apply for On-Duty (OD) / Medical Leave</h3>
                 <button onClick={() => setShowSubmitModal(false)} className="text-slate-400 hover:text-slate-700">
-                  ✕
+                  âœ•
                 </button>
               </div>
 
@@ -299,3 +279,5 @@ export default function ODRequestsPage() {
     </DashboardShell>
   );
 }
+
+

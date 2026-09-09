@@ -1,11 +1,10 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Loader } from "@/components/common/Loader";
 import { useAuth } from "@/context/AuthContext";
-import { mockService } from "@/services/mockServices";
 import { apiClient } from "@/services/apiClient";
 import Link from "next/link";
 
@@ -48,20 +47,27 @@ function StudentDashboard() {
   const department = user?.department || "";
 
 
-  const [stats, setStats] = useState(() => mockService.getOverallStudentStats(studentRoll));
-  const [subjects, setSubjects] = useState(() => mockService.getSubjectAttendanceSummary(studentRoll));
+  
+  const [stats, setStats] = useState<any>(null);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      apiClient.get("/dashboard/student/stats").then(r => mounted && setStats(r.data)),
+      apiClient.get("/attendance/summary").then(r => mounted && setSubjects(r.data?.subjects || []))
+    ]).finally(() => mounted && setLoading(false));
+
+    return () => { mounted = false; };
+  }, [studentRoll]);
+
 
   const [todayClasses, setTodayClasses] = useState<any[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
 
   useEffect(() => {
-    const update = () => {
-      setStats(mockService.getOverallStudentStats(studentRoll));
-      setSubjects(mockService.getSubjectAttendanceSummary(studentRoll));
-    };
-    const unsubscribe = mockService.subscribe(update);
-
-    apiClient.get<any[]>("/dashboard/student/today")
+apiClient.get<any[]>("/dashboard/student/today")
       .then(res => { if (res.data && Array.isArray(res.data)) setTodayClasses(res.data); })
       .catch(() => {});
 
@@ -69,7 +75,7 @@ function StudentDashboard() {
       .then(res => { if (res.data && Array.isArray(res.data)) setTrendData(res.data); })
       .catch(() => {});
 
-    return () => unsubscribe();
+    
   }, [studentRoll]);
 
 
@@ -78,7 +84,7 @@ function StudentDashboard() {
       {/* Institutional Department Banner */}
       <PageHeader
         title={`Welcome back, ${studentName}`}
-        subtitle={`Roll No: ${studentRoll} • ${department} • Academic Year 2026–2027 (Semester 3)`}
+        subtitle={`Roll No: ${studentRoll} â€¢ ${department} â€¢ Academic Year 2026â€“2027 (Semester 3)`}
         breadcrumb={[{ label: "Student Dashboard" }]}
         categoryTag="STUDENT ATTENDANCE CONSOLE"
         action={
@@ -220,7 +226,7 @@ function StudentDashboard() {
               Subject Attendance Status
             </h3>
             <Link href="/attendance" className="text-xs text-[#0B2C5C] hover:underline font-bold">
-              View Calendar →
+              View Calendar â†’
             </Link>
           </div>
 
@@ -233,7 +239,7 @@ function StudentDashboard() {
                 <div>
                   <div className="font-extrabold text-slate-900 text-xs">{s.name}</div>
                   <div className="text-[10px] font-mono text-slate-500">
-                    {s.code} • {s.attended}/{s.held} attended
+                    {s.code} â€¢ {s.attended}/{s.held} attended
                   </div>
                 </div>
                 <div className="text-right">
@@ -266,7 +272,7 @@ function StudentDashboard() {
             </h3>
           </div>
           <span className="text-xs font-mono text-slate-500 font-bold">
-            08 September 2026 (Tuesday) • Semester 3
+            08 September 2026 (Tuesday) â€¢ Semester 3
           </span>
         </div>
 
@@ -311,15 +317,15 @@ function StudentDashboard() {
                     <td className="p-3 text-right">
                       {isPresent ? (
                         <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          ✓ VERIFIED PRESENT
+                          âœ“ VERIFIED PRESENT
                         </span>
                       ) : isAbsent ? (
                         <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-100 text-[#EF4444] border border-rose-300">
-                          ✕ ABSENT
+                          âœ• ABSENT
                         </span>
                       ) : (
                         <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
-                          • UPCOMING
+                          â€¢ UPCOMING
                         </span>
                       )}
                     </td>
@@ -352,7 +358,7 @@ function FacultyDashboard() {
     <div className="space-y-6 font-sans">
       <PageHeader
         title={`Welcome back, ${facultyName}`}
-        subtitle={`${user?.department || "Academic Department"} • Faculty Console`}
+        subtitle={`${user?.department || "Academic Department"} â€¢ Faculty Console`}
         breadcrumb={[{ label: "Faculty Console" }]}
         categoryTag="FACULTY ACADEMIC CONSOLE"
         action={
@@ -378,7 +384,7 @@ function FacultyDashboard() {
           </div>
           <span className="px-3 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center space-x-1">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-dot" />
-            <span>LIVE SESSION ACTIVE • MQTT ESP32 ONLINE</span>
+            <span>LIVE SESSION ACTIVE â€¢ MQTT ESP32 ONLINE</span>
           </span>
         </div>
 
@@ -391,7 +397,7 @@ function FacultyDashboard() {
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#071E40]/90 via-transparent to-transparent flex items-end p-2.5">
-              <span className="text-[10px] font-mono font-bold text-white">Room 302 • IoT Lab</span>
+              <span className="text-[10px] font-mono font-bold text-white">Room 302 â€¢ IoT Lab</span>
             </div>
           </div>
 
@@ -399,7 +405,7 @@ function FacultyDashboard() {
             <div>
               <div className="text-[10px] font-bold text-slate-500 uppercase">Active Course</div>
               <div className="text-sm font-extrabold text-[#0B2C5C] mt-0.5">CS3401 Algorithms & Data Structures</div>
-              <div className="text-xs text-slate-500 font-mono">Room 302 • Block A</div>
+              <div className="text-xs text-slate-500 font-mono">Room 302 â€¢ Block A</div>
             </div>
             <div>
               <div className="text-[10px] font-bold text-slate-500 uppercase">Enrolled Students</div>
@@ -462,7 +468,7 @@ function FacultyDashboard() {
             </div>
             <div className="p-3.5 space-y-1">
               <div className="font-extrabold text-slate-900 text-xs">Algorithms & Data Structures</div>
-              <div className="text-[11px] text-slate-500">Room 302 • Mon, Tue, Thu</div>
+              <div className="text-[11px] text-slate-500">Room 302 â€¢ Mon, Tue, Thu</div>
               <div className="flex justify-between items-center text-[10px] text-emerald-700 font-bold pt-1">
                 <span>Attendance: 87.1%</span>
                 <span className="text-slate-500">62 Enrolled</span>
@@ -483,7 +489,7 @@ function FacultyDashboard() {
             </div>
             <div className="p-3.5 space-y-1">
               <div className="font-extrabold text-slate-900 text-xs">Data Structures Laboratory</div>
-              <div className="text-[11px] text-slate-500">IoT Lab 2 • Wed, Fri</div>
+              <div className="text-[11px] text-slate-500">IoT Lab 2 â€¢ Wed, Fri</div>
               <div className="flex justify-between items-center text-[10px] text-emerald-700 font-bold pt-1">
                 <span>Attendance: 93.4%</span>
                 <span className="text-slate-500">62 Enrolled</span>
@@ -504,7 +510,7 @@ function FacultyDashboard() {
             </div>
             <div className="p-3.5 space-y-1">
               <div className="font-extrabold text-slate-900 text-xs">Object-Oriented Programming</div>
-              <div className="text-[11px] text-slate-500">Room 304 • Tue, Thu</div>
+              <div className="text-[11px] text-slate-500">Room 304 â€¢ Tue, Thu</div>
               <div className="flex justify-between items-center text-[10px] text-emerald-700 font-bold pt-1">
                 <span>Attendance: 85.8%</span>
                 <span className="text-slate-500">58 Enrolled</span>
@@ -602,7 +608,7 @@ function AdminDashboard() {
             href="/admin/management"
             className="inline-block px-4 py-2 rounded-full bg-[#0B2C5C] hover:bg-[#071E40] text-white font-bold text-xs shadow-xs"
           >
-            Launch CRUD Management →
+            Launch CRUD Management â†’
           </Link>
         </div>
 
@@ -615,7 +621,7 @@ function AdminDashboard() {
             href="/devices"
             className="inline-block px-4 py-2 rounded-full bg-[#0B2C5C] hover:bg-[#071E40] text-white font-bold text-xs shadow-xs"
           >
-            View Device Fleet →
+            View Device Fleet â†’
           </Link>
         </div>
 
@@ -628,7 +634,7 @@ function AdminDashboard() {
             href="/audit-logs"
             className="inline-block px-4 py-2 rounded-full bg-[#0B2C5C] hover:bg-[#071E40] text-white font-bold text-xs shadow-xs"
           >
-            Review Audit Logs →
+            Review Audit Logs â†’
           </Link>
         </div>
       </div>
@@ -655,3 +661,4 @@ export default function DashboardPage() {
     </DashboardShell>
   );
 }
+

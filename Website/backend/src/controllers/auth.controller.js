@@ -46,6 +46,7 @@ async function me(req, res, next) {
   } catch (err) {
     next(err);
   }
+}
 async function changePassword(req, res, next) {
   try {
     const { oldPassword, newPassword } = req.body;

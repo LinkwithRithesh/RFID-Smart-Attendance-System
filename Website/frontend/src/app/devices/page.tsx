@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/context/AuthContext";
-import { mockService } from "@/services/mockServices";
+import { apiClient } from "@/services/apiClient";
 import { realtimeService } from "@/services/realtime";
 import { IoTDevice } from "@/services/mockData";
 import {
@@ -24,58 +24,28 @@ import {
 
 export default function DevicesPage() {
   const { user } = useAuth();
-  const [devices, setDevices] = useState<IoTDevice[]>(() => mockService.getIoTDevices());
-  const [classrooms] = useState(() => mockService.getClassrooms());
-  const [activeTab, setActiveTab] = useState<"fleet" | "map">("fleet");
-
+  
+  const [devices, setDevices] = useState<any[]>([]);
+  const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [buzzerActive, setBuzzerActive] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"fleet" | "map">("fleet");
   const [restartingId, setRestartingId] = useState<string | null>(null);
 
-  const [isReconnecting, setIsReconnecting] = useState(false);
+  const fetchDevices = () => {
+    setLoading(true);
+    apiClient.get("/devices").then(res => {
+      setDevices(res.data?.devices || res.data || []);
+      setLoading(false);
+    });
+  };
 
-  useEffect(() => {
-    const update = () => setDevices(mockService.getIoTDevices());
-    const unsubscribeStore = mockService.subscribe(update);
-
-    // If real backend is active, subscribe to SSE device:telemetry stream
-    let unsubscribeTelemetry = () => {};
-    let unsubscribeConn = () => {};
-
-    if (process.env.NEXT_PUBLIC_USE_MOCKS !== "true") {
-      unsubscribeTelemetry = realtimeService.subscribe("device:telemetry", (data: any) => {
-        if (!data) return;
-        setDevices((prev) =>
-          prev.map((d) =>
-            d.id === String(data.id) || d.code === data.deviceCode
-              ? {
-                  ...d,
-                  status: data.isOnline ? "ONLINE" : "OFFLINE",
-                  lastSeen: data.secondsSinceHeartbeat !== undefined
-                    ? `${data.secondsSinceHeartbeat}s ago`
-                    : "Active",
-                  firmwareVersion: data.firmwareVersion || d.firmwareVersion,
-                }
-              : d
-          )
-        );
-      });
-
-      unsubscribeConn = realtimeService.onConnectionChange((connected) => {
-        setIsReconnecting(!connected);
-      });
-    }
-
-    return () => {
-      unsubscribeStore();
-      unsubscribeTelemetry();
-      unsubscribeConn();
-    };
-  }, []);
+  
 
   const handleTestBuzzer = async (code: string) => {
     setBuzzerActive(code);
     try {
-      await mockService.testBuzzer(code);
+      await apiClient.post(`/devices/${code}/command`, { command: "TEST_BUZZER" });
     } catch (err: any) {
       alert(err?.message || "Failed to trigger buzzer test");
     } finally {
@@ -88,10 +58,7 @@ export default function DevicesPage() {
   const handleRestartDevice = async (id: string, code: string) => {
     setRestartingId(code);
     try {
-      await mockService.restartDevice(id, {
-        user: user?.name || "Dr. K. Arumugam",
-        role: "ADMIN",
-      });
+      await apiClient.post(`/devices/${id}/command`, { command: "RESTART" });
     } catch (err: any) {
       alert(err?.message || "Failed to trigger device restart");
     } finally {
@@ -266,3 +233,9 @@ export default function DevicesPage() {
     </DashboardShell>
   );
 }
+
+
+
+
+
+

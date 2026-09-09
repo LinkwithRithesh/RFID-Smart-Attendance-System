@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+﻿const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const ApiError = require('../utils/ApiError');
 const userRepository = require('../repositories/user.repository');
@@ -74,7 +74,7 @@ async function refresh(refreshToken) {
 
   const tokenMatches = await bcrypt.compare(refreshToken, user.refreshTokenHash);
   if (!tokenMatches) {
-    // Token doesn't match the one on record — possible reuse of a rotated
+    // Token doesn't match the one on record â€” possible reuse of a rotated
     // token. Invalidate the stored hash so this identity chain is dead.
     await userRepository.updateRefreshTokenHash(user.id, null);
     throw new ApiError(401, 'Invalid or expired refresh token');
@@ -115,4 +115,11 @@ async function changePassword(userId, oldPassword, newPassword, ipAddress) {
   return true;
 }
 
+async function logout(userId) {
+  if (userId) {
+    await userRepository.updateRefreshTokenHash(userId, null);
+  }
+}
+
 module.exports = { login, refresh, logout, changePassword };
+

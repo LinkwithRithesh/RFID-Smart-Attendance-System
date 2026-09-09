@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SmartAttend Centralized Real API Client
  *
  * Requirements fulfilled:
@@ -71,8 +71,9 @@ class ApiClient {
       ...((options.headers as Record<string, string>) || {}),
     };
 
-    if (this.token) {
-      headers["Authorization"] = `Bearer ${this.token}`;
+    const activeToken = this.getToken();
+    if (activeToken) {
+      headers["Authorization"] = `Bearer ${activeToken}`;
     }
 
     try {
@@ -292,3 +293,4 @@ export const apiClient = new ApiClient();
 export function getToken(): string | null {
   return apiClient.getToken();
 }
+

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { mockService } from "@/services/mockServices";
+import { apiClient } from "@/services/apiClient";
 import { AnomalyItem } from "@/services/mockData";
 import {
   BarChart3,
@@ -30,13 +30,18 @@ import {
 } from "recharts";
 
 export default function AnalyticsPage() {
-  const [anomalies, setAnomalies] = useState<AnomalyItem[]>(() => mockService.getAnomalies());
-
+  
+  const [anomalies, setAnomalies] = useState<AnomalyItem[]>([]);
   useEffect(() => {
-    const update = () => setAnomalies(mockService.getAnomalies());
-    const unsubscribe = mockService.subscribe(update);
-    return () => unsubscribe();
+    let mounted = true;
+    apiClient.get("/analytics/anomalies").then(res => {
+      if(mounted && res.data) setAnomalies(res.data);
+    });
+    return () => { mounted = false; };
   }, []);
+
+
+  
 
   const methodBreakdown = [
     { name: "RFID Turnstiles", value: 68, color: "#0B2C5C" },
