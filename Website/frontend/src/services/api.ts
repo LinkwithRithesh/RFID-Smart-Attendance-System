@@ -1,4 +1,4 @@
-﻿import { apiClient } from "./apiClient";
+import { apiClient } from "./apiClient";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
@@ -144,6 +144,47 @@ export const api = {
     } catch {
       // Best-effort
     }
+  },
+
+  async register(registrationData: any) {
+    const data = await apiFetch("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(registrationData),
+    });
+    return { success: true, message: data.message, devOtp: data.data?.devOtp, email: data.data?.email };
+  },
+
+  async verifyRegisterOtp(email: string, otp: string) {
+    const data = await apiFetch("/auth/register/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ email, otp }),
+    });
+    return { success: true, data: data.data, message: data.message };
+  },
+
+  async getPendingRegistrations() {
+    const data = await apiFetch("/admin/registrations/pending");
+    return { success: true, data: data.data };
+  },
+
+  async getPendingRegistrationDetail(id: number) {
+    const data = await apiFetch(`/admin/registrations/${id}`);
+    return { success: true, data: data.data };
+  },
+
+  async approveRegistration(id: number) {
+    const data = await apiFetch(`/admin/registrations/${id}/approve`, {
+      method: "PATCH",
+    });
+    return { success: true, message: data.message, data: data.data };
+  },
+
+  async rejectRegistration(id: number, reason?: string) {
+    const data = await apiFetch(`/admin/registrations/${id}/reject`, {
+      method: "PATCH",
+      body: JSON.stringify({ reason }),
+    });
+    return { success: true, message: data.message, data: data.data };
   },
 
   async changePassword(oldPassword: string, newPassword: string) {
@@ -320,15 +361,15 @@ export const api = {
 
   // ---- OD Requests ----
   async getODRequests() {
-    const data = await apiFetch("/od");
+    const data = await apiFetch("/od-requests");
     return { success: true, data: data.data };
   },
   async submitODRequest(payload: any) {
-    const data = await apiFetch("/od", { method: "POST", body: JSON.stringify(payload) });
+    const data = await apiFetch("/od-requests", { method: "POST", body: JSON.stringify(payload) });
     return { success: true, data: data.data };
   },
   async updateODStatus(id: number, status: string, notes?: string) {
-    const data = await apiFetch(`/od/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, remarks: notes }) });
+    const data = await apiFetch(`/od-requests/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, remarks: notes }) });
     return { success: true, data: data.data };
   },
 

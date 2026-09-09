@@ -23,6 +23,42 @@ function findByEmail(email) {
   });
 }
 
+async function findByEmailOrIdentifier(identifier) {
+  if (!identifier) return null;
+  if (identifier.includes('@')) {
+    return prisma.user.findUnique({
+      where: { email: identifier },
+      include: { role: true },
+    });
+  }
+
+  const student = await prisma.studentProfile.findUnique({
+    where: { rollNumber: identifier },
+    include: { user: { include: { role: true } } },
+  });
+  if (student) return student.user;
+
+  const faculty = await prisma.facultyProfile.findUnique({
+    where: { employeeId: identifier },
+    include: { user: { include: { role: true } } },
+  });
+  if (faculty) return faculty.user;
+
+  const admin = await prisma.administratorProfile.findUnique({
+    where: { employeeId: identifier },
+    include: { user: { include: { role: true } } },
+  });
+  if (admin) return admin.user;
+
+  const hod = await prisma.hodProfile.findUnique({
+    where: { employeeId: identifier },
+    include: { user: { include: { role: true } } },
+  });
+  if (hod) return hod.user;
+
+  return null;
+}
+
 function findByRfidCardId(rfidCardId) {
   return prisma.user.findUnique({
     where: { rfidCardId },
@@ -128,6 +164,7 @@ function deactivateUser(id) {
 
 module.exports = {
   findByEmail,
+  findByEmailOrIdentifier,
   findByRfidCardId,
   findById,
   findByIdWithProfile,

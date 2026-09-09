@@ -2,8 +2,12 @@ const { z } = require('zod');
 
 const loginSchema = z.object({
   body: z.object({
-    email: z.string().email(),
+    email: z.string().optional(),
+    loginId: z.string().optional(),
     password: z.string().min(1, 'Password is required'),
+  }).refine((data) => !!(data.email || data.loginId), {
+    message: 'Email or User ID is required',
+    path: ['email'],
   }),
 });
 

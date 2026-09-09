@@ -5,6 +5,7 @@ jest.mock('../src/repositories/user.repository', () => ({
   createUserWithProfile: jest.fn(),
   listUsers: jest.fn(),
   updateUser: jest.fn(),
+  updateUserWithProfile: jest.fn(),
   deactivateUser: jest.fn(),
 }));
 jest.mock('../src/repositories/role.repository', () => ({
@@ -129,13 +130,13 @@ describe('getUser', () => {
 
 describe('updateUser', () => {
   test('throws 404 when the user does not exist', async () => {
-    userRepository.findById.mockResolvedValue(null);
+    userRepository.findByIdWithProfile.mockResolvedValue(null);
     await expect(userService.updateUser(999, { fullName: 'X' }, 1)).rejects.toMatchObject({ statusCode: 404 });
   });
 
   test('updates and logs an audit entry', async () => {
-    userRepository.findById.mockResolvedValue(makeUser());
-    userRepository.updateUser.mockResolvedValue(makeUser({ fullName: 'Alice Updated' }));
+    userRepository.findByIdWithProfile.mockResolvedValue(makeUser());
+    userRepository.updateUserWithProfile.mockResolvedValue(makeUser({ fullName: 'Alice Updated' }));
 
     const result = await userService.updateUser(5, { fullName: 'Alice Updated' }, 1);
 

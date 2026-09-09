@@ -1,12 +1,10 @@
 const express = require('express');
 const prisma = require('../config/database');
-const authenticate = require('../middleware/authenticate');
 const { success } = require('../utils/apiResponse');
 
 const router = express.Router();
 
-// All authenticated users can list departments (needed for student enrollment, filters, etc.)
-router.get('/', authenticate, async (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
     const departments = await prisma.department.findMany({
       select: {
@@ -14,11 +12,21 @@ router.get('/', authenticate, async (req, res, next) => {
         name: true,
         code: true,
       },
-      orderBy: { name: 'asc' },
+      orderBy: {
+        name: 'asc',
+      },
     });
 
-    return success(res, 200, 'Departments retrieved successfully', departments);
+    console.log('Departments:', departments);
+
+    return success(
+      res,
+      200,
+      'Departments retrieved successfully',
+      departments
+    );
   } catch (err) {
+    console.error('DEPARTMENTS API ERROR:', err);
     next(err);
   }
 });

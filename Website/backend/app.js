@@ -26,6 +26,7 @@ const odRoutes = require('./src/routes/od.routes');
 const helpdeskRoutes = require('./src/routes/helpdesk.routes');
 const auditLogRoutes = require('./src/routes/auditLog.routes');
 const dashboardRoutes = require('./src/routes/dashboard.routes');
+const adminRegistrationRoutes = require('./src/routes/adminRegistration.routes');
 const { errorHandler, notFoundHandler } = require('./src/middleware/errorHandler');
 
 const app = express();
@@ -114,6 +115,7 @@ app.use('/api/v1/od-requests', odRoutes);
 app.use('/api/v1/helpdesk', helpdeskRoutes);
 app.use('/api/v1/audit-logs', auditLogRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/admin/registrations', adminRegistrationRoutes);
 
 
 // 404 + centralized error handler (must be last)

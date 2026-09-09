@@ -6,6 +6,8 @@ const { loginSchema, refreshSchema, changePasswordSchema } = require('../validat
 
 const router = express.Router();
 
+router.post('/register', authController.register);
+router.post('/register/verify-otp', authController.verifyOtp);
 router.post('/login', validate(loginSchema), authController.login);
 router.post('/refresh', validate(refreshSchema), authController.refresh);
 router.post('/logout', authenticate, authController.logout);

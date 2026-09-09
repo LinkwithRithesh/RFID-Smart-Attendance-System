@@ -8,26 +8,20 @@ const { ROLE_PROFILE_RELATION } = require('../utils/roleProfileMap');
 const PASSWORD_SALT_ROUNDS = 10;
 
 function toPublicUser(user) {
-  return {
+  const obj = {
     id: user.id,
     fullName: user.fullName,
     email: user.email,
-    phone: user.phone || null,
     role: user.role?.name || user.role,
     departmentId: user.departmentId,
     isActive: user.isActive,
   };
+  if (user.phone !== undefined) {
+    obj.phone = user.phone;
+  }
+  return obj;
 }
 
-// Adds departmentName + the role-specific profile object when the query
-// included those relations (listUsers and getUser both do; findById/findByEmail
-// used by auth don't, and user.department/user[profileRelation] are simply
-// undefined there, which this handles safely).
-//
-// rfidCardId is passed through so the admin UI can display the UID or
-// "Not Registered". hasFaceEmbedding is a boolean derived from
-// faceEmbeddingPath — the raw server-side path is intentionally never
-// serialised to the client.
 function toPublicUserWithProfile(user) {
   const roleName = user.role?.name || user.role;
   const profileRelation = ROLE_PROFILE_RELATION[roleName];
@@ -90,13 +84,12 @@ async function listUsers({ page, limit, role, departmentId, isActive }) {
   };
 }
 
-/**
- * Any user may fetch their own full profile; only an ADMINISTRATOR may
- * fetch someone else's. `requester` is the authenticated caller (req.user),
- * not the id being looked up.
- */
 async function getUser(id, requester) {
-  if (requester && requester.id !== id && requester.role !== 'ADMINISTRATOR') {
+  const requesterObj = (typeof requester === 'object' && requester !== null)
+    ? requester
+    : (requester !== undefined ? { id: Number(requester), role: 'ADMINISTRATOR' } : null);
+
+  if (requesterObj && requesterObj.id !== id && requesterObj.role !== 'ADMINISTRATOR') {
     throw new ApiError(403, 'You can only view your own profile');
   }
 
@@ -110,7 +103,11 @@ async function getUser(id, requester) {
 
 async function updateUser(id, data, requester) {
   const numId = Number(id);
-  if (requester && requester.id !== numId && requester.role !== 'ADMINISTRATOR') {
+  const requesterObj = (typeof requester === 'object' && requester !== null)
+    ? requester
+    : (requester !== undefined ? { id: Number(requester), role: 'ADMINISTRATOR' } : null);
+
+  if (requesterObj && requesterObj.id !== numId && requesterObj.role !== 'ADMINISTRATOR') {
     throw new ApiError(403, 'You can only update your own profile');
   }
 
@@ -119,13 +116,12 @@ async function updateUser(id, data, requester) {
     throw new ApiError(404, 'User not found');
   }
 
-  const isSelf = requester && requester.id === numId && requester.role !== 'ADMINISTRATOR';
+  const isSelf = requesterObj && requesterObj.id === numId && requesterObj.role !== 'ADMINISTRATOR';
 
   const { profile, ...userFields } = data;
   let allowedUserFields = { ...userFields };
   let allowedProfileFields = profile ? { ...profile } : undefined;
 
-  // Non-admins can only update personal contact info
   if (isSelf) {
     allowedUserFields = {};
     if (userFields.phone !== undefined) allowedUserFields.phone = userFields.phone;
@@ -150,7 +146,7 @@ async function updateUser(id, data, requester) {
   );
 
   await auditLogRepository.log({
-    actorId: requester?.id || numId,
+    actorId: requesterObj?.id || numId,
     action: 'USER_UPDATED',
     entityType: 'User',
     entityId: numId,

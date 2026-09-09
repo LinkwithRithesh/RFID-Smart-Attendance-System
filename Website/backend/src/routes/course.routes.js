@@ -6,9 +6,8 @@ const ApiError = require('../utils/ApiError');
 const prisma = require('../config/database');
 
 const router = express.Router();
-router.use(authenticate, authorize('ADMINISTRATOR', 'ADMIN'));
 
-// List all courses (optionally filtered by departmentId)
+// Public route to list courses (used by registration form)
 router.get('/', async (req, res, next) => {
   try {
     const { departmentId } = req.query;
@@ -40,6 +39,9 @@ router.get('/', async (req, res, next) => {
     next(err);
   }
 });
+
+// Admin-only routes
+router.use(authenticate, authorize('ADMINISTRATOR', 'ADMIN'));
 
 // Create course
 router.post('/', async (req, res, next) => {

@@ -11,6 +11,7 @@ const bcrypt = require('bcrypt');
 // real chain entirely so these tests don't depend on a generated client.
 jest.mock('../src/repositories/user.repository', () => ({
   findByEmail: jest.fn(),
+  findByEmailOrIdentifier: jest.fn(),
   findById: jest.fn(),
   updateRefreshTokenHash: jest.fn(),
 }));
@@ -30,6 +31,7 @@ function makeUser(overrides = {}) {
     fullName: 'Dr. Rao',
     email: 'rao@campus.edu',
     isActive: true,
+    status: 'APPROVED',
     roleId: 2,
     role: mockRole,
     refreshTokenHash: null,
@@ -46,7 +48,7 @@ describe('auth.service login', () => {
   test('succeeds with correct credentials and returns tokens + public user', async () => {
     const passwordHash = await bcrypt.hash('correct-password', 10);
     const user = makeUser({ passwordHash });
-    userRepository.findByEmail.mockResolvedValue(user);
+    userRepository.findByEmailOrIdentifier.mockResolvedValue(user);
     userRepository.updateRefreshTokenHash.mockResolvedValue({});
 
     const result = await authService.login('rao@campus.edu', 'correct-password', '127.0.0.1');
@@ -62,7 +64,7 @@ describe('auth.service login', () => {
 
   test('rejects wrong password without leaking which field was wrong', async () => {
     const passwordHash = await bcrypt.hash('correct-password', 10);
-    userRepository.findByEmail.mockResolvedValue(makeUser({ passwordHash }));
+    userRepository.findByEmailOrIdentifier.mockResolvedValue(makeUser({ passwordHash }));
 
     await expect(authService.login('rao@campus.edu', 'wrong-password')).rejects.toMatchObject({
       statusCode: 401,
@@ -71,7 +73,7 @@ describe('auth.service login', () => {
   });
 
   test('rejects unknown email', async () => {
-    userRepository.findByEmail.mockResolvedValue(null);
+    userRepository.findByEmailOrIdentifier.mockResolvedValue(null);
 
     await expect(authService.login('nobody@campus.edu', 'anything')).rejects.toMatchObject({
       statusCode: 401,
@@ -80,7 +82,7 @@ describe('auth.service login', () => {
 
   test('rejects deactivated user even with correct password', async () => {
     const passwordHash = await bcrypt.hash('correct-password', 10);
-    userRepository.findByEmail.mockResolvedValue(makeUser({ passwordHash, isActive: false }));
+    userRepository.findByEmailOrIdentifier.mockResolvedValue(makeUser({ passwordHash, isActive: false }));
 
     await expect(authService.login('rao@campus.edu', 'correct-password')).rejects.toMatchObject({
       statusCode: 401,
@@ -92,7 +94,7 @@ describe('auth.service refresh', () => {
   test('rotates tokens when the refresh token matches the stored hash', async () => {
     const passwordHash = await bcrypt.hash('correct-password', 10);
     const user = makeUser({ passwordHash });
-    userRepository.findByEmail.mockResolvedValue(user);
+    userRepository.findByEmailOrIdentifier.mockResolvedValue(user);
     userRepository.updateRefreshTokenHash.mockImplementation(async (id, hash) => {
       user.refreshTokenHash = hash;
       return user;

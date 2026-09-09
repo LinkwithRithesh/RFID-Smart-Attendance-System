@@ -69,6 +69,7 @@ model User {
   faceEmbeddingPath    String?               @map("face_embedding_path") @db.VarChar(255)
   refreshTokenHash     String?               @map("refresh_token_hash") @db.VarChar(255)
   status               UserStatus            @default(APPROVED)
+  rejectionReason      String?               @map("rejection_reason") @db.VarChar(500)
   isActive             Boolean               @default(true) @map("is_active")
   createdAt            DateTime              @default(now()) @map("created_at") @db.DateTime(0)
   updatedAt            DateTime              @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
@@ -582,5 +583,18 @@ enum DocumentCategory {
   LEAVE
   CIRCULAR
   GUIDELINES
+}
+
+model OtpVerification {
+  id          Int       @id @default(autoincrement())
+  email       String    @unique @db.VarChar(150)
+  otpHash     String    @map("otp_hash") @db.VarChar(255)
+  payloadJson String    @map("payload_json") @db.Text
+  expiresAt   DateTime  @map("expires_at") @db.DateTime(0)
+  attempts    Int       @default(0) @db.TinyInt
+  consumedAt  DateTime? @map("consumed_at") @db.DateTime(0)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+
+  @@map("otp_verifications")
 }
 
