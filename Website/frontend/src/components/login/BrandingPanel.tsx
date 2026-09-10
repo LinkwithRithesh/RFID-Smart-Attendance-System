@@ -9,11 +9,23 @@ import {
   Zap,
   GraduationCap,
   Building2,
+  Bell,
 } from "lucide-react";
 import { LoginCard } from "./LoginCard";
 import Link from "next/link";
+import { api } from "@/services/api";
 
 export const BrandingPanel: React.FC = () => {
+  const [announcements, setAnnouncements] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    api.getPublicAnnouncements().then((res) => {
+      if (res.success && res.data) {
+        setAnnouncements(res.data);
+      }
+    }).catch(() => {});
+  }, []);
+
   return (
     <div className="w-full flex flex-col font-sans bg-[#F8FAFC] text-slate-800 min-h-screen">
       {/* 1. TOP INSTITUTIONAL UTILITY HEADER (Matches SSN Reference Top Navy Bar) */}
@@ -126,8 +138,31 @@ export const BrandingPanel: React.FC = () => {
             </div>
           </div>
 
+          {/* Public Announcements Section */}
+          {announcements.length > 0 && (
+            <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-xs overflow-hidden mt-4">
+              <div className="bg-[#0B2C5C] px-4 py-2 flex items-center space-x-2">
+                <Bell className="w-4 h-4 text-amber-400 animate-pulse" />
+                <span className="text-white font-bold text-xs uppercase tracking-wider">Campus Notifications</span>
+              </div>
+              <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                {announcements.map((ann, idx) => (
+                  <div key={idx} className="p-3 hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-[#0B2C5C]">{ann.title}</span>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {new Date(ann.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 line-clamp-2">{ann.message}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Institutional Compliance Footer Banner */}
-          <div className="p-4 rounded-xl bg-[#EEF2F8] border border-[#E2E8F0] flex items-center space-x-3 text-xs text-slate-700">
+          <div className="p-4 rounded-xl bg-[#EEF2F8] border border-[#E2E8F0] flex items-center space-x-3 text-xs text-slate-700 mt-6">
             <ShieldCheck className="w-5 h-5 text-[#0B2C5C] shrink-0" />
             <span>
               All transactions and attendance records are immutably signed and audit-logged in accordance with Anna University academic regulations.

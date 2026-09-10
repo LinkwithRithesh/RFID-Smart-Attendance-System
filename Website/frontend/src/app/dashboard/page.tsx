@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -55,8 +55,19 @@ function StudentDashboard() {
   useEffect(() => {
     let mounted = true;
     Promise.all([
-      apiClient.get("/dashboard/student/stats").then(r => mounted && setStats(r.data)),
-      apiClient.get("/attendance/summary").then(r => mounted && setSubjects(r.data?.subjects || []))
+      apiClient.get("/dashboard/student/stats")
+        .then(r => mounted && setStats(r.data))
+        .catch(() => mounted && setStats({
+          overallPercentage: 0,
+          totalAttended: 0,
+          totalHeld: 0,
+          totalAbsent: 0,
+          attendanceStreak: 0,
+          maxAllowedMisses: 0
+        })),
+      apiClient.get("/attendance/summary")
+        .then(r => mounted && setSubjects(r.data?.subjects || []))
+        .catch(() => mounted && setSubjects([]))
     ]).finally(() => mounted && setLoading(false));
 
     return () => { mounted = false; };
@@ -78,13 +89,16 @@ apiClient.get<any[]>("/dashboard/student/today")
     
   }, [studentRoll]);
 
+  if (loading || !stats) {
+    return <Loader />;
+  }
 
   return (
     <div className="space-y-6 font-sans">
       {/* Institutional Department Banner */}
       <PageHeader
         title={`Welcome back, ${studentName}`}
-        subtitle={`Roll No: ${studentRoll} â€¢ ${department} â€¢ Academic Year 2026â€“2027 (Semester 3)`}
+        subtitle={`Roll No: ${studentRoll} • ${department} • Academic Year ${new Date().getFullYear()}–${new Date().getFullYear() + 1} (Semester ${user?.semester || 1})`}
         breadcrumb={[{ label: "Student Dashboard" }]}
         categoryTag="STUDENT ATTENDANCE CONSOLE"
         action={
@@ -104,7 +118,7 @@ apiClient.get<any[]>("/dashboard/student/today")
         <div className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs flex items-center justify-between hover-lift">
           <div>
             <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Overall Attendance</div>
-            <div className="text-3xl font-black text-[#0B2C5C] mt-1 font-mono">{stats.overallPercentage}%</div>
+            <div className="text-3xl font-black text-[#0B2C5C] mt-1 font-mono">{stats?.overallPercentage || 0}%</div>
             <div className="text-[11px] font-bold text-emerald-600 mt-1 flex items-center space-x-1">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Compliant (&gt;75% required)</span>
@@ -122,7 +136,7 @@ apiClient.get<any[]>("/dashboard/student/today")
                 strokeWidth="6"
                 fill="transparent"
                 strokeDasharray={163}
-                strokeDashoffset={163 * (1 - stats.overallPercentage / 100)}
+                strokeDashoffset={163 * (1 - (stats?.overallPercentage || 0) / 100)}
                 strokeLinecap="round"
                 className="transition-all duration-1000 ease-out animate-stroke-draw"
                 style={{
@@ -130,7 +144,7 @@ apiClient.get<any[]>("/dashboard/student/today")
                 }}
               />
             </svg>
-            <span className="absolute text-xs font-black text-[#0B2C5C] font-mono">{stats.overallPercentage}%</span>
+            <span className="absolute text-xs font-black text-[#0B2C5C] font-mono">{stats?.overallPercentage || 0}%</span>
           </div>
         </div>
 
@@ -143,10 +157,10 @@ apiClient.get<any[]>("/dashboard/student/today")
             </div>
           </div>
           <div className="text-3xl font-black text-[#0B2C5C] font-mono">
-            {stats.totalAttended} <span className="text-sm font-bold text-slate-400">/ {stats.totalHeld}</span>
+            {stats?.totalAttended || 0} <span className="text-sm font-bold text-slate-400">/ {stats?.totalHeld || 0}</span>
           </div>
           <div className="text-[11px] text-slate-500 font-medium">
-            {stats.totalAbsent} absences recorded this term
+            {stats?.totalAbsent || 0} absences recorded this term
           </div>
         </div>
 
@@ -159,7 +173,7 @@ apiClient.get<any[]>("/dashboard/student/today")
             </div>
           </div>
           <div className="text-3xl font-black text-amber-600 font-mono">
-            {stats.attendanceStreak} Days <span className="text-xs font-bold text-slate-400">Streak</span>
+            {stats?.attendanceStreak || 0} Days <span className="text-xs font-bold text-slate-400">Streak</span>
           </div>
           <div className="text-[11px] text-amber-700 font-bold flex items-center space-x-1">
             <Award className="w-3.5 h-3.5" />
@@ -176,10 +190,10 @@ apiClient.get<any[]>("/dashboard/student/today")
             </span>
           </div>
           <div className="text-2xl font-black text-[#0B2C5C] mt-1">
-            Safe: <span className="text-emerald-600 font-mono">{stats.maxAllowedMisses}</span> Classes
+            Safe: <span className="text-emerald-600 font-mono">{stats?.maxAllowedMisses || 0}</span> Classes
           </div>
           <div className="text-[11px] text-slate-500">
-            Can safely miss up to {stats.maxAllowedMisses} sessions while remaining above 75%.
+            Can safely miss up to {stats?.maxAllowedMisses || 0} sessions while remaining above 75%.
           </div>
         </div>
       </div>
@@ -226,12 +240,12 @@ apiClient.get<any[]>("/dashboard/student/today")
               Subject Attendance Status
             </h3>
             <Link href="/attendance" className="text-xs text-[#0B2C5C] hover:underline font-bold">
-              View Calendar â†’
+              View Calendar →
             </Link>
           </div>
 
           <div className="space-y-2.5">
-            {subjects.map((s) => (
+            {subjects?.map((s) => (
               <div
                 key={s.code}
                 className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between"
@@ -239,7 +253,7 @@ apiClient.get<any[]>("/dashboard/student/today")
                 <div>
                   <div className="font-extrabold text-slate-900 text-xs">{s.name}</div>
                   <div className="text-[10px] font-mono text-slate-500">
-                    {s.code} â€¢ {s.attended}/{s.held} attended
+                    {s.code} • {s.attended}/{s.held} attended
                   </div>
                 </div>
                 <div className="text-right">
@@ -272,8 +286,7 @@ apiClient.get<any[]>("/dashboard/student/today")
             </h3>
           </div>
           <span className="text-xs font-mono text-slate-500 font-bold">
-            08 September 2026 (Tuesday) â€¢ Semester 3
-          </span>
+            {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })} ({new Date().toLocaleDateString('en-GB', { weekday: 'long' })}) • Semester {user?.semester || 1}          </span>
         </div>
 
         <div className="overflow-x-auto">
@@ -290,7 +303,7 @@ apiClient.get<any[]>("/dashboard/student/today")
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {todayClasses.map((item, idx) => {
+              {todayClasses?.map((item, idx) => {
                 const isPresent = item.status === "PRESENT";
                 const isAbsent = item.status === "ABSENT";
                 const borderAccent = isPresent
@@ -317,15 +330,15 @@ apiClient.get<any[]>("/dashboard/student/today")
                     <td className="p-3 text-right">
                       {isPresent ? (
                         <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                          âœ“ VERIFIED PRESENT
+                          ✓ VERIFIED PRESENT
                         </span>
                       ) : isAbsent ? (
                         <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-100 text-[#EF4444] border border-rose-300">
-                          âœ• ABSENT
+                          ✕ ABSENT
                         </span>
                       ) : (
                         <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
-                          â€¢ UPCOMING
+                          • UPCOMING
                         </span>
                       )}
                     </td>
@@ -358,7 +371,7 @@ function FacultyDashboard() {
     <div className="space-y-6 font-sans">
       <PageHeader
         title={`Welcome back, ${facultyName}`}
-        subtitle={`${user?.department || "Academic Department"} â€¢ Faculty Console`}
+        subtitle={`${user?.department || "Academic Department"} • Faculty Console`}
         breadcrumb={[{ label: "Faculty Console" }]}
         categoryTag="FACULTY ACADEMIC CONSOLE"
         action={
@@ -384,7 +397,7 @@ function FacultyDashboard() {
           </div>
           <span className="px-3 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center space-x-1">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-dot" />
-            <span>LIVE SESSION ACTIVE â€¢ MQTT ESP32 ONLINE</span>
+            <span>LIVE SESSION ACTIVE • MQTT ESP32 ONLINE</span>
           </span>
         </div>
 
@@ -397,7 +410,7 @@ function FacultyDashboard() {
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#071E40]/90 via-transparent to-transparent flex items-end p-2.5">
-              <span className="text-[10px] font-mono font-bold text-white">Room 302 â€¢ IoT Lab</span>
+              <span className="text-[10px] font-mono font-bold text-white">Room 302 • IoT Lab</span>
             </div>
           </div>
 
@@ -405,7 +418,7 @@ function FacultyDashboard() {
             <div>
               <div className="text-[10px] font-bold text-slate-500 uppercase">Active Course</div>
               <div className="text-sm font-extrabold text-[#0B2C5C] mt-0.5">CS3401 Algorithms & Data Structures</div>
-              <div className="text-xs text-slate-500 font-mono">Room 302 â€¢ Block A</div>
+              <div className="text-xs text-slate-500 font-mono">Room 302 • Block A</div>
             </div>
             <div>
               <div className="text-[10px] font-bold text-slate-500 uppercase">Enrolled Students</div>
@@ -455,68 +468,34 @@ function FacultyDashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] overflow-hidden group hover:border-[#0B2C5C] transition-all">
-            <div className="h-28 overflow-hidden relative">
-              <img
-                src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=600&q=80"
-                alt="CS3401 Lecture"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-white text-[#0B2C5C] font-mono text-[10px] font-bold shadow-xs">
-                CS3401
+          {courses.length > 0 ? (
+            courses.map((c) => (
+              <div key={c.id} className="rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] overflow-hidden group hover:border-[#0B2C5C] transition-all">
+                <div className="h-28 overflow-hidden relative">
+                  <img
+                    src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=600&q=80"
+                    alt={c.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-white text-[#0B2C5C] font-mono text-[10px] font-bold shadow-xs">
+                    {c.code}
+                  </div>
+                </div>
+                <div className="p-3.5 space-y-1">
+                  <div className="font-extrabold text-slate-900 text-xs">{c.name}</div>
+                  <div className="text-[11px] text-slate-500">Semester {c.semester} • {c.totalSessions} Sessions</div>
+                  <div className="flex justify-between items-center text-[10px] text-emerald-700 font-bold pt-1">
+                    <span>Attendance: {c.attendanceRate}%</span>
+                    <span className="text-slate-500">{c.enrolledCount} Enrolled</span>
+                  </div>
+                </div>
               </div>
+            ))
+          ) : (
+            <div className="col-span-1 md:col-span-3 text-center text-slate-500 py-6 text-sm font-medium">
+              No courses assigned.
             </div>
-            <div className="p-3.5 space-y-1">
-              <div className="font-extrabold text-slate-900 text-xs">Algorithms & Data Structures</div>
-              <div className="text-[11px] text-slate-500">Room 302 â€¢ Mon, Tue, Thu</div>
-              <div className="flex justify-between items-center text-[10px] text-emerald-700 font-bold pt-1">
-                <span>Attendance: 87.1%</span>
-                <span className="text-slate-500">62 Enrolled</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] overflow-hidden group hover:border-[#0B2C5C] transition-all">
-            <div className="h-28 overflow-hidden relative">
-              <img
-                src="https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?auto=format&fit=crop&w=600&q=80"
-                alt="CS3411 Lab"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-white text-[#0B2C5C] font-mono text-[10px] font-bold shadow-xs">
-                CS3411
-              </div>
-            </div>
-            <div className="p-3.5 space-y-1">
-              <div className="font-extrabold text-slate-900 text-xs">Data Structures Laboratory</div>
-              <div className="text-[11px] text-slate-500">IoT Lab 2 â€¢ Wed, Fri</div>
-              <div className="flex justify-between items-center text-[10px] text-emerald-700 font-bold pt-1">
-                <span>Attendance: 93.4%</span>
-                <span className="text-slate-500">62 Enrolled</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] overflow-hidden group hover:border-[#0B2C5C] transition-all">
-            <div className="h-28 overflow-hidden relative">
-              <img
-                src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=600&q=80"
-                alt="CS3402 Seminar"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-white text-[#0B2C5C] font-mono text-[10px] font-bold shadow-xs">
-                CS3402
-              </div>
-            </div>
-            <div className="p-3.5 space-y-1">
-              <div className="font-extrabold text-slate-900 text-xs">Object-Oriented Programming</div>
-              <div className="text-[11px] text-slate-500">Room 304 â€¢ Tue, Thu</div>
-              <div className="flex justify-between items-center text-[10px] text-emerald-700 font-bold pt-1">
-                <span>Attendance: 85.8%</span>
-                <span className="text-slate-500">58 Enrolled</span>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -573,26 +552,26 @@ function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs hover-lift">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Enrolled Students</div>
-          <div className="text-3xl font-black text-[#0B2C5C] mt-1 font-mono">{stats.students}</div>
+          <div className="text-3xl font-black text-[#0B2C5C] mt-1 font-mono">{stats?.students || 0}</div>
           <div className="text-[11px] text-emerald-700 font-bold mt-1">Verified Student Profiles</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs hover-lift">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Active Faculty Members</div>
-          <div className="text-3xl font-black text-[#0B2C5C] mt-1 font-mono">{stats.faculty}</div>
+          <div className="text-3xl font-black text-[#0B2C5C] mt-1 font-mono">{stats?.faculty || 0}</div>
           <div className="text-[11px] text-slate-500 mt-1">All verified university staff</div>
         </div>
 
         <div className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs hover-lift">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">ESP32 Fleet Hardware</div>
-          <div className="text-3xl font-black text-[#0B2C5C] mt-1 font-mono">{stats.devices}</div>
-          <div className="text-[11px] text-emerald-700 font-bold mt-1">{stats.onlineDevices} Online</div>
+          <div className="text-3xl font-black text-[#0B2C5C] mt-1 font-mono">{stats?.devices || 0}</div>
+          <div className="text-[11px] text-emerald-700 font-bold mt-1">{stats?.onlineDevices || 0} Online</div>
         </div>
 
 
         <div className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs hover-lift">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Campus Turnout Rate</div>
-          <div className="text-3xl font-black text-emerald-700 mt-1 font-mono">{stats.todayAttendance}%</div>
+          <div className="text-3xl font-black text-emerald-700 mt-1 font-mono">{stats?.todayAttendance || 0}%</div>
           <div className="text-[11px] text-slate-500 mt-1">Realtime MQTT aggregation</div>
         </div>
       </div>
@@ -608,7 +587,7 @@ function AdminDashboard() {
             href="/admin/management"
             className="inline-block px-4 py-2 rounded-full bg-[#0B2C5C] hover:bg-[#071E40] text-white font-bold text-xs shadow-xs"
           >
-            Launch CRUD Management â†’
+            Launch CRUD Management →
           </Link>
         </div>
 
@@ -621,7 +600,7 @@ function AdminDashboard() {
             href="/devices"
             className="inline-block px-4 py-2 rounded-full bg-[#0B2C5C] hover:bg-[#071E40] text-white font-bold text-xs shadow-xs"
           >
-            View Device Fleet â†’
+            View Device Fleet →
           </Link>
         </div>
 
@@ -634,7 +613,20 @@ function AdminDashboard() {
             href="/audit-logs"
             className="inline-block px-4 py-2 rounded-full bg-[#0B2C5C] hover:bg-[#071E40] text-white font-bold text-xs shadow-xs"
           >
-            Review Audit Logs â†’
+            Review Audit Logs →
+          </Link>
+        </div>
+
+        <div className="p-6 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs space-y-3">
+          <div className="font-extrabold text-sm text-[#0B2C5C]">User Management & Approvals</div>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Approve pending student/faculty registrations, assign roll numbers, and directly add new faculty accounts.
+          </p>
+          <Link
+            href="/admin/users"
+            className="inline-block px-4 py-2 rounded-full bg-[#0B2C5C] hover:bg-[#071E40] text-white font-bold text-xs shadow-xs"
+          >
+            Manage Users →
           </Link>
         </div>
       </div>

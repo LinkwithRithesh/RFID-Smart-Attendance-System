@@ -89,7 +89,8 @@ async function getUser(id, requester) {
     ? requester
     : (requester !== undefined ? { id: Number(requester), role: 'ADMINISTRATOR' } : null);
 
-  if (requesterObj && requesterObj.id !== id && requesterObj.role !== 'ADMINISTRATOR') {
+  const { isEffectiveAdmin } = require('../utils/roleMapper');
+  if (requesterObj && requesterObj.id !== id && !isEffectiveAdmin(requesterObj.role)) {
     throw new ApiError(403, 'You can only view your own profile');
   }
 
@@ -107,7 +108,8 @@ async function updateUser(id, data, requester) {
     ? requester
     : (requester !== undefined ? { id: Number(requester), role: 'ADMINISTRATOR' } : null);
 
-  if (requesterObj && requesterObj.id !== numId && requesterObj.role !== 'ADMINISTRATOR') {
+  const { isEffectiveAdmin } = require('../utils/roleMapper');
+  if (requesterObj && requesterObj.id !== numId && !isEffectiveAdmin(requesterObj.role)) {
     throw new ApiError(403, 'You can only update your own profile');
   }
 
@@ -116,7 +118,7 @@ async function updateUser(id, data, requester) {
     throw new ApiError(404, 'User not found');
   }
 
-  const isSelf = requesterObj && requesterObj.id === numId && requesterObj.role !== 'ADMINISTRATOR';
+  const isSelf = requesterObj && requesterObj.id === numId && !isEffectiveAdmin(requesterObj.role);
 
   const { profile, ...userFields } = data;
   let allowedUserFields = { ...userFields };

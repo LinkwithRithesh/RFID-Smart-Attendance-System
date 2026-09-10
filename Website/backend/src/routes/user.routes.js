@@ -21,7 +21,7 @@ router.patch('/:id', validate(userIdParamSchema), validate(updateUserSchema), us
 
 // Everything else remains admin-only: accounts are provisioned by
 // administrators, not self-registered, matching the spec's enterprise model.
-router.use(authorize('ADMINISTRATOR'));
+router.use(authorize('ADMIN'));
 router.post('/', validate(createUserSchema), userController.createUser);
 router.get('/', validate(listUsersQuerySchema), userController.listUsers);
 router.delete('/:id', validate(userIdParamSchema), userController.deactivateUser);

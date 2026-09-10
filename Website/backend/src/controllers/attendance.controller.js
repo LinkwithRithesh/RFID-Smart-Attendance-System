@@ -12,7 +12,9 @@ async function markViaDevice(req, res, next) {
 
 async function markManual(req, res, next) {
   try {
-    const attendance = await attendanceService.markManual(req.body, req.user.id);
+    const payload = req.body;
+    payload.userId = await resolveStudentId(payload.userId, payload.userId);
+    const attendance = await attendanceService.markManual(payload, req.user.id);
     return success(res, 201, 'Attendance marked', attendance);
   } catch (err) {
     next(err);

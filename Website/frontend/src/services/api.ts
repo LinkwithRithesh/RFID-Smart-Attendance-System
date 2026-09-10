@@ -24,7 +24,7 @@ export interface User {
 }
 
 export interface StudentRow {
-  id: number;           // users.id â€” use for update/delete
+  id: number;           // users.id — use for update/delete
   rollNumber: string;   // profile.rollNumber
   fullName: string;
   email: string;
@@ -144,6 +144,22 @@ export const api = {
     } catch {
       // Best-effort
     }
+  },
+
+  async forgotPassword(email: string) {
+    const data = await apiFetch("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+    return { success: true, message: data.message, devOtp: data.data?.devOtp };
+  },
+
+  async resetPassword(email: string, otp: string, newPassword: string) {
+    const data = await apiFetch("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ email, otp, newPassword }),
+    });
+    return { success: true, message: data.message };
   },
 
   async register(registrationData: any) {
@@ -382,8 +398,8 @@ export const api = {
     const data = await apiFetch("/helpdesk", { method: "POST", body: JSON.stringify(payload) });
     return { success: true, data: data.data };
   },
-  async replyToTicket(id: number, payload: any) {
-    const data = await apiFetch(`/helpdesk/${id}/replies`, { method: "POST", body: JSON.stringify(payload) });
+  async submitHelpdeskReply(id: number, payload: any) {
+    const data = await apiFetch(`/helpdesk/${id}/messages`, { method: "POST", body: JSON.stringify(payload) });
     return { success: true, data: data.data };
   },
   async updateTicketStatus(id: number, status: string, notes?: string) {
@@ -446,6 +462,16 @@ export const api = {
   },
 
   // ---- Announcements ----
+  async getPublicAnnouncements() {
+    // A fetch without auth token since it's a public route
+    const res = await fetch(`${BASE_URL}/announcements/public`);
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || "Failed to fetch public announcements");
+    }
+    return { success: true, data: data.data.announcements };
+  },
+
   async getAnnouncements(params?: { category?: string; role?: string }) {
     const query = new URLSearchParams();
     if (params?.category && params.category !== "ALL") query.set("category", params.category);
@@ -517,7 +543,6 @@ export const api = {
     return { success: true, ...data.data };
   },
 
-  // ---- Reports ----
   async getReports(params: { department: string; format: "pdf" | "excel"; from: string; to: string }) {
     const query = new URLSearchParams({
       department: params.department,
@@ -531,3 +556,4 @@ export const api = {
     };
   },
 };
+

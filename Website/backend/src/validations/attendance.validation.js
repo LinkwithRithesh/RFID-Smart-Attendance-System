@@ -9,7 +9,7 @@ const markDeviceAttendanceSchema = z.object({
 const markManualAttendanceSchema = z.object({
   body: z.object({
     sessionId: z.number().int().positive(),
-    userId: z.number().int().positive(),
+    userId: z.union([z.number().int().positive(), z.string().min(1)]),
     status: z.enum(['PRESENT', 'LATE', 'ABSENT']),
   }),
 });

@@ -10,6 +10,16 @@ async function createAnnouncement(req, res, next) {
   }
 }
 
+async function listPublicAnnouncements(req, res, next) {
+  try {
+    const query = { targetRole: 'ALL', limit: 3 };
+    const result = await announcementService.listAnnouncements(query);
+    return success(res, 200, 'Public announcements retrieved', result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function listAnnouncements(req, res, next) {
   try {
     const result = await announcementService.listAnnouncements(req.query);
@@ -46,4 +56,4 @@ async function deleteAnnouncement(req, res, next) {
   }
 }
 
-module.exports = { createAnnouncement, listAnnouncements, pin, unpin, deleteAnnouncement };
+module.exports = { createAnnouncement, listAnnouncements, listPublicAnnouncements, pin, unpin, deleteAnnouncement };

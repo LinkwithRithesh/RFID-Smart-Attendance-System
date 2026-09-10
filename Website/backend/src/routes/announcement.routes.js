@@ -11,6 +11,8 @@ const {
 
 const router = express.Router();
 
+router.get('/public', announcementController.listPublicAnnouncements);
+
 router.use(authenticate);
 
 // Any authenticated user reads announcements (a campus notice board).

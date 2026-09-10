@@ -82,6 +82,30 @@ async function changePassword(req, res, next) {
   }
 }
 
+async function forgotPassword(req, res, next) {
+  try {
+    const { email } = req.body;
+    const { otp } = await authService.forgotPassword(email);
+    const responseData = { email };
+    if (process.env.REGISTRATION_OTP_MODE === 'development') {
+      responseData.devOtp = otp;
+    }
+    return success(res, 200, 'Password reset OTP sent successfully.', responseData);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function resetPassword(req, res, next) {
+  try {
+    const { email, otp, newPassword } = req.body;
+    await authService.resetPassword(email, otp, newPassword, req.ip);
+    return success(res, 200, 'Password has been reset successfully.');
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   verifyOtp,
@@ -90,4 +114,6 @@ module.exports = {
   logout,
   me,
   changePassword,
+  forgotPassword,
+  resetPassword,
 };

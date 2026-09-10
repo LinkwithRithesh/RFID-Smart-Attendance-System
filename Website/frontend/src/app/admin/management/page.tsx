@@ -339,6 +339,7 @@ export default function AdminManagementPage() {
     if (confirm(`Are you sure you want to deactivate student ${name} (${rollNumber})?`)) {
       try {
         await api.deleteUser(id);
+        setStudents((prev) => prev.filter(s => s.id !== id));
         await loadStudents();
       } catch (err: any) {
         console.error("Failed to deactivate student:", err);

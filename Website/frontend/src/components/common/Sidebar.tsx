@@ -137,6 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       ],
     },
     { type: "link", label: "OD / Leave Requests", href: "/od-requests", icon: FileCheck2 },
+    { type: "link", label: "Announcements", href: "/admin/announcements", icon: Bell },
     { type: "link", label: "Help Desk Tickets", href: "/helpdesk", icon: Ticket },
     { type: "link", label: "Audit Logs", href: "/audit-logs", icon: History },
     { type: "link", label: "System Settings", href: "/settings", icon: Settings },

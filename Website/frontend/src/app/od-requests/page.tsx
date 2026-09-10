@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -27,7 +27,7 @@ export default function ODRequestsPage() {
 
 
   const [requests, setRequests] = useState<any[]>([]);
-  const fetchRequests = () => apiClient.get("/od").then(r => setRequests(r.data?.requests || r.data || []));
+  const fetchRequests = () => apiClient.get("/od-requests").then(r => setRequests(r.data?.requests || r.data || []));
   useEffect(() => { fetchRequests(); }, []);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
 
@@ -43,7 +43,7 @@ export default function ODRequestsPage() {
 
   const handleSubmitOD = async (e: React.FormEvent) => {
     e.preventDefault();
-    await apiClient.post("/od", { type: category, startDate: date, endDate, reason }); fetchRequests();
+    await apiClient.post("/od-requests", { type: category, startDate: date, endDate, reason }); fetchRequests();
     setShowSubmitModal(false);
     setReason("");
   };
@@ -52,7 +52,14 @@ export default function ODRequestsPage() {
     id: string,
     status: "FACULTY_APPROVED" | "APPROVED" | "REJECTED"
   ) => {
-    await apiClient.patch(`/od/${id}/status`, { status, remarks: "Reviewed via institutional portal" }); fetchRequests();
+    await apiClient.patch(`/od-requests/${id}/status`, { status, remarks: "Reviewed via institutional portal" }); fetchRequests();
+  };
+
+  const handleDeleteOD = async (id: string) => {
+    if (confirm("Are you sure you want to delete this OD request?")) {
+      await apiClient.delete(`/od-requests/${id}`);
+      fetchRequests();
+    }
   };
 
   return (
@@ -112,7 +119,7 @@ export default function ODRequestsPage() {
                           </span>
                         </div>
                         <div className="text-xs text-slate-500 mt-0.5">
-                          {req.department} â€¢ Affected: <strong className="text-slate-700">{req.subject}</strong>
+                          {req.department} • Affected: <strong className="text-slate-700">{req.subject}</strong>
                         </div>
                       </div>
                     </div>
@@ -133,13 +140,13 @@ export default function ODRequestsPage() {
                   {/* 3-Stage Progress Timeline */}
                   <div className="grid grid-cols-3 gap-2 p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] text-center text-[11px]">
                     <div className={`p-2 rounded-lg ${stage1_submitted ? "bg-white text-emerald-700 font-bold shadow-xs" : "text-slate-400"}`}>
-                      âœ“ 1. Submitted
+                      ✓ 1. Submitted
                     </div>
                     <div className={`p-2 rounded-lg ${stage2_facultyRecommended ? "bg-white text-emerald-700 font-bold shadow-xs" : "text-slate-400"}`}>
-                      {stage2_facultyRecommended ? "âœ“ 2. Faculty Endorsed" : "â€¢ 2. Faculty Review"}
+                      {stage2_facultyRecommended ? "✓ 2. Faculty Endorsed" : "• 2. Faculty Review"}
                     </div>
                     <div className={`p-2 rounded-lg ${stage3_hodApproved ? "bg-white text-emerald-700 font-bold shadow-xs" : "text-slate-400"}`}>
-                      {stage3_hodApproved ? "âœ“ 3. HOD Stamped" : "â€¢ 3. HOD Decision"}
+                      {stage3_hodApproved ? "✓ 3. HOD Stamped" : "• 3. HOD Decision"}
                     </div>
                   </div>
 
@@ -176,6 +183,17 @@ export default function ODRequestsPage() {
                         </button>
                       </div>
                     )}
+                    
+                    {(role === "ADMIN" || role === "STUDENT") && (
+                      <div className="flex items-center mt-2 sm:mt-0">
+                        <button
+                          onClick={() => handleDeleteOD(req.id)}
+                          className="px-4 py-1.5 rounded-full bg-slate-50 border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -190,7 +208,7 @@ export default function ODRequestsPage() {
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <h3 className="text-sm font-black text-[#0B2C5C]">Apply for On-Duty (OD) / Medical Leave</h3>
                 <button onClick={() => setShowSubmitModal(false)} className="text-slate-400 hover:text-slate-700">
-                  âœ•
+                  ✕
                 </button>
               </div>
 

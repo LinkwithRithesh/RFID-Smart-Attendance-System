@@ -84,9 +84,6 @@ async function verifyRegisterOtp(email, inputOtp) {
   // Re-verify duplicates before DB write
   await checkDuplicates(payload);
 
-  const PASSWORD_SALT_ROUNDS = 10;
-  const passwordHash = await bcrypt.hash(payload.password, PASSWORD_SALT_ROUNDS);
-
   const roleUpper = (payload.role || 'STUDENT').toUpperCase();
   const roleRow = await prisma.role.findUnique({ where: { name: roleUpper } });
   if (!roleRow) {
@@ -114,6 +111,10 @@ async function verifyRegisterOtp(email, inputOtp) {
       designation: payload.designation || 'Faculty Member',
     };
   }
+
+  const passwordToUse = payload.password || regId;
+  const PASSWORD_SALT_ROUNDS = 10;
+  const passwordHash = await bcrypt.hash(passwordToUse, PASSWORD_SALT_ROUNDS);
 
   const rfidVal = (payload.rfidCardId && String(payload.rfidCardId).trim()) ? String(payload.rfidCardId).trim() : null;
 
@@ -143,6 +144,17 @@ async function login(emailOrId, password, ipAddress) {
   const user = await userRepository.findByEmailOrIdentifier(emailOrId);
   if (!user) {
     throw new ApiError(401, 'Invalid email or password');
+  }
+
+  const roleName = user.role?.name?.toUpperCase() || '';
+  if (roleName === 'ADMIN') {
+    if (emailOrId !== user.email) {
+      throw new ApiError(401, 'Administrators must log in using their email address.');
+    }
+  } else if (roleName === 'STUDENT' || roleName === 'FACULTY') {
+    if (emailOrId.includes('@')) {
+      throw new ApiError(401, 'Students and Faculty must log in using their Roll Number / Employee ID.');
+    }
   }
 
   const passwordMatches = await bcrypt.compare(password, user.passwordHash);

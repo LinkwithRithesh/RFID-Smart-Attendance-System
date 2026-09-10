@@ -181,7 +181,7 @@ export default function LiveAttendancePage() {
             <div>
               <div className="flex items-center space-x-2">
                 <span className="text-xs font-mono font-bold text-[#0B2C5C] bg-[#EEF2F8] px-2 py-0.5 rounded">
-                  CS3401 â€¢ Room 302 (Block A)
+                  CS3401 • Room 302 (Block A)
                 </span>
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border flex items-center space-x-1.5 ${
                   sessionActive
@@ -264,7 +264,7 @@ export default function LiveAttendancePage() {
                       <span className="font-mono text-slate-500 font-bold text-[11px]">({item.rollNo})</span>
                     </div>
                     <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                      {item.room} â€¢ Match Confidence: {item.confidence}%
+                      {item.room} • Match Confidence: {item.confidence}%
                     </div>
                   </div>
                 </div>
@@ -275,7 +275,7 @@ export default function LiveAttendancePage() {
                   </span>
                   <span className="text-slate-400 font-mono text-[11px]">{item.time}</span>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    âœ“ VERIFIED
+                    ✓ VERIFIED
                   </span>
                 </div>
               </div>
@@ -289,7 +289,7 @@ export default function LiveAttendancePage() {
             <div className="bg-white border border-[#E2E8F0] rounded-2xl max-w-sm w-full shadow-2xl p-6 space-y-4 text-center text-slate-800">
               <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                 <span className="font-bold text-xs text-[#0B2C5C] uppercase">Emergency QR Check-in</span>
-                <button onClick={() => setShowQrModal(false)} className="text-slate-400 hover:text-slate-700">âœ•</button>
+                <button onClick={() => setShowQrModal(false)} className="text-slate-400 hover:text-slate-700">✕</button>
               </div>
 
               <div className="p-4 bg-slate-100 rounded-2xl inline-block border border-slate-200">
@@ -314,7 +314,7 @@ export default function LiveAttendancePage() {
             <div className="bg-white border border-[#E2E8F0] rounded-2xl max-w-md w-full shadow-2xl p-6 space-y-4 text-slate-800">
               <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                 <h3 className="text-sm font-black text-[#0B2C5C]">Manual Attendance Verification</h3>
-                <button onClick={() => setShowManualModal(false)} className="text-slate-400 hover:text-slate-700">âœ•</button>
+                <button onClick={() => setShowManualModal(false)} className="text-slate-400 hover:text-slate-700">✕</button>
               </div>
 
               <form onSubmit={handleManualOverride} className="space-y-3 text-xs">

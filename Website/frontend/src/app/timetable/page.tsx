@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/context/AuthContext";
@@ -12,36 +12,78 @@ export default function TimetablePage() {
 
   const [viewMode, setViewMode] = useState<"week" | "today">("week");
 
-  // Weekly Schedule Data
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const daysOfWeek = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  const fullDaysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  const currentDayKey = daysOfWeek[currentTime.getDay()];
+  const currentDayName = fullDaysOfWeek[currentTime.getDay()];
+
+  const currentHour = currentTime.getHours();
+  let currentPeriodIdx = -1;
+  if (currentHour === 9) currentPeriodIdx = 0; // Period 1
+  else if (currentHour === 10) currentPeriodIdx = 1; // Period 2
+  else if (currentHour === 11) currentPeriodIdx = 2; // Period 3
+  else if (currentHour === 13) currentPeriodIdx = 3; // Period 4
+  else if (currentHour === 14) currentPeriodIdx = 5; // Period 5 (idx 5, lunch is idx 4)
+  else if (currentHour === 15) currentPeriodIdx = 6; // Period 6
+  else if (currentHour === 16) currentPeriodIdx = 7; // Period 7
+  else if (currentHour === 17) currentPeriodIdx = 8; // Period 8
+
   const weeklySchedule: Record<string, Record<string, any>> = {
-    "Period 1 (09:00 - 10:00 AM)": {
-      MON: { code: "EC3401", title: "Electromagnetic Fields", room: "Room 302", faculty: "Dr. S. Ramesh", type: "Lecture" },
-      TUE: { code: "EC3401", title: "Electromagnetic Fields", room: "Room 302", faculty: "Dr. S. Ramesh", type: "Lecture", isCurrent: false },
-      WED: { code: "EC3402", title: "Signals & Systems", room: "Room 302", faculty: "Dr. K. Arumugam", type: "Lecture" },
-      THU: { code: "EC3403", title: "Analog Circuits", room: "Room 304", faculty: "Prof. N. Venkatesh", type: "Lecture" },
-      FRI: { code: "EC3404", title: "Digital Communications", room: "Room 302", faculty: "Dr. P. Sundaram", type: "Lecture" },
+    "Period 1": {
+      MON: { code: "EC23C13", title: "Digital Electronics & Sys", room: "Classroom", faculty: "Ewins Pon Pushpa", type: "Theory" },
+      TUE: { code: "MA23C03", title: "Linear Algebra & Num Methods", room: "Classroom", faculty: "Murali Doss K", type: "Theory", isCurrent: false },
+      WED: { code: "MA23C03", title: "Linear Algebra & Num Methods", room: "Classroom", faculty: "Murali Doss K", type: "Theory" },
+      THU: { code: "EC23301", title: "Electromagnetic Fields", room: "Classroom", faculty: "Gulam Nabi", type: "Theory" },
+      FRI: { code: "EC23302", title: "Signals & Systems", room: "Classroom", faculty: "Sridarshini T", type: "Theory" },
     },
-    "Period 2 (10:00 - 11:00 AM)": {
-      MON: { code: "EC3402", title: "Signals & Systems", room: "Room 302", faculty: "Dr. K. Arumugam", type: "Lecture" },
-      TUE: { code: "EC3402", title: "Signals & Systems", room: "Room 302", faculty: "Dr. K. Arumugam", type: "Lecture", isCurrent: true },
-      WED: { code: "EC3401", title: "Electromagnetic Fields", room: "Room 302", faculty: "Dr. S. Ramesh", type: "Lecture" },
-      THU: { code: "EC3404", title: "Digital Communications", room: "Room 302", faculty: "Dr. P. Sundaram", type: "Lecture" },
-      FRI: { code: "EC3403", title: "Analog Circuits", room: "Room 304", faculty: "Prof. N. Venkatesh", type: "Lecture" },
+    "Period 2": {
+      MON: { code: "EC23C13", title: "Digital Electronics & Sys", room: "Classroom", faculty: "Ewins Pon Pushpa", type: "Theory" },
+      TUE: { code: "MA23C03", title: "Linear Algebra & Num Methods", room: "Classroom", faculty: "Murali Doss K", type: "Theory", isCurrent: true },
+      WED: { code: "MA23C03", title: "Linear Algebra & Num Methods", room: "Classroom", faculty: "Murali Doss K", type: "Theory" },
+      THU: { code: "EC23301", title: "Electromagnetic Fields", room: "Classroom", faculty: "Gulam Nabi", type: "Theory" },
+      FRI: { code: "EC23302", title: "Signals & Systems", room: "Classroom", faculty: "Sridarshini T", type: "Theory" },
     },
-    "Period 3 (11:15 - 12:15 PM)": {
-      MON: { code: "EC3403", title: "Analog Circuits", room: "Room 304", faculty: "Prof. N. Venkatesh", type: "Lecture" },
-      TUE: { code: "EC3403", title: "Analog Circuits", room: "Room 304", faculty: "Prof. N. Venkatesh", type: "Lecture" },
-      WED: { code: "EC3404", title: "Digital Communications", room: "Room 302", faculty: "Dr. P. Sundaram", type: "Lecture" },
-      THU: { code: "EC3401", title: "Electromagnetic Fields", room: "Room 302", faculty: "Dr. S. Ramesh", type: "Lecture" },
-      FRI: { code: "EC3402", title: "Signals & Systems", room: "Room 302", faculty: "Dr. K. Arumugam", type: "Lecture" },
+    "Period 3": {
+      MON: { code: "EC23C02", title: "Analog Circuits Design", room: "Classroom", faculty: "Senbagakuzhalvaimozhi", type: "Theory" },
+      TUE: { code: "EC23C02", title: "Analog Circuits Design", room: "Classroom", faculty: "Senbagakuzhalvaimozhi", type: "Theory" },
+      WED: { code: "EC23C13", title: "Digital Electronics & Sys", room: "Classroom", faculty: "Ewins Pon Pushpa", type: "Theory" },
+      THU: { code: "EC23301", title: "Electromagnetic Fields", room: "Classroom", faculty: "Gulam Nabi", type: "Theory" },
+
+    },
+    "Period 4": {
+      MON: { code: "EC23S01", title: "Signal Processing Python", room: "Lab", faculty: "Steffi Snow P", type: "Nan Mudhalvan" },
+      TUE: { code: "EC23C02", title: "Analog Circuits Design", room: "Classroom", faculty: "Senbagakuzhalvaimozhi", type: "Theory" },
+      WED: { code: "EC23302", title: "Signals & Systems", room: "Classroom", faculty: "Sridarshini T", type: "Theory" },
     },
     "Lunch Break": {},
-    "Period 4 & 5 (01:30 - 03:30 PM)": {
-      MON: { code: "EC3411", title: "Analog Circuits Lab", room: "Lab 2", faculty: "Prof. N. Venkatesh", type: "Lab" },
-      TUE: { code: "EC3411", title: "Analog Circuits Lab", room: "Lab 2", faculty: "Prof. N. Venkatesh", type: "Lab" },
-      WED: { code: "EC3412", title: "Circuits Simulation Lab", room: "IoT Lab", faculty: "Dr. S. Ramesh", type: "Lab" },
-      THU: { code: "LIB", title: "Library & Self Study", room: "Central Lib", faculty: "Staff In-charge", type: "Library" },
-      FRI: { code: "SEM", title: "Technical Seminar", room: "Auditorium", faculty: "HOD / Faculty", type: "Seminar" },
+    "Period 5": {
+      MON: { code: "UC23U01", title: "Universal Human Values", room: "Classroom", faculty: "Sridarshini T", type: "Theory" },
+      TUE: { code: "SKILL", title: "Skill Development", room: "Classroom", faculty: "Steffi Snow P", type: "Skill" },
+      WED: { code: "SKILL", title: "Skill Development", room: "Classroom", faculty: "Steffi Snow P", type: "Skill" },
+      THU: { code: "EC23C13", title: "Digital Electronics Lab", room: "Lab", faculty: "Ewins Pon Pushpa", type: "Practical" },
+      FRI: { code: "UC23U01", title: "Universal Human Values Lab", room: "Lab", faculty: "Sridarshini T", type: "Practical" },
+    },
+    "Period 6": {
+      WED: { code: "SKILL", title: "Skill Development", room: "Classroom", faculty: "Steffi Snow P", type: "Skill" },
+      THU: { code: "EC23C13", title: "Digital Electronics Lab", room: "Lab", faculty: "Ewins Pon Pushpa", type: "Practical" },
+      FRI: { code: "UC23U01", title: "Universal Human Values Lab", room: "Lab", faculty: "Sridarshini T", type: "Practical" },
+    },
+    "Period 7": {
+      WED: { code: "SKILL", title: "Skill Development", room: "Classroom", faculty: "Steffi Snow P", type: "Skill" },
+      THU: { code: "EC23C13", title: "Digital Electronics Lab", room: "Lab", faculty: "Ewins Pon Pushpa", type: "Practical" },
+    },
+    "Period 8": {
+      WED: { code: "SKILL", title: "Skill Development", room: "Classroom", faculty: "Steffi Snow P", type: "Skill" },
+      THU: { code: "EC23C13", title: "Digital Electronics Lab", room: "Lab", faculty: "Ewins Pon Pushpa", type: "Practical" },
+      FRI: { code: "AUDIT", title: "Audit Course", room: "Classroom", faculty: "Temp Staff", type: "Audit" },
     },
   };
 
@@ -54,7 +96,7 @@ export default function TimetablePage() {
       <div className="space-y-6 font-sans text-slate-800">
         <PageHeader
           title="Class Timetable & Active Lecture Schedule"
-          subtitle="Semester 3 • ECE Section A • Weekly period mapping with live turnstile sensor tracking"
+          subtitle="Semester 3 • ECE Section B • Weekly period mapping with live turnstile sensor tracking"
           breadcrumb={[{ label: "Academic Timetable" }]}
           categoryTag="ACADEMIC CURRICULUM SCHEDULE"
           action={
@@ -74,21 +116,19 @@ export default function TimetablePage() {
         <div className="flex items-center space-x-2 bg-white border border-[#E2E8F0] p-1.5 rounded-2xl shadow-xs w-fit">
           <button
             onClick={() => setViewMode("week")}
-            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              viewMode === "week"
-                ? "bg-[#0B2C5C] text-white shadow-xs"
-                : "text-slate-600 hover:text-[#0B2C5C]"
-            }`}
+            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${viewMode === "week"
+              ? "bg-[#0B2C5C] text-white shadow-xs"
+              : "text-slate-600 hover:text-[#0B2C5C]"
+              }`}
           >
             Weekly Grid View
           </button>
           <button
             onClick={() => setViewMode("today")}
-            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              viewMode === "today"
-                ? "bg-[#0B2C5C] text-white shadow-xs"
-                : "text-slate-600 hover:text-[#0B2C5C]"
-            }`}
+            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${viewMode === "today"
+              ? "bg-[#0B2C5C] text-white shadow-xs"
+              : "text-slate-600 hover:text-[#0B2C5C]"
+              }`}
           >
             Today&apos;s Schedule Only
           </button>
@@ -98,75 +138,75 @@ export default function TimetablePage() {
         <div className="bg-white rounded-2xl border border-[#E2E8F0] p-6 shadow-xs overflow-x-auto space-y-4">
           <div className="flex items-center justify-between text-xs font-bold border-b border-slate-100 pb-3">
             <span className="text-[#0B2C5C] uppercase tracking-wider">
-              Department of Electronics & Communication Engineering • Room 302
+              Department of Electronics & Communication Engineering • Room 104
             </span>
             <span className="text-emerald-700 font-mono flex items-center space-x-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-dot" />
-              <span>Active Tuesday Lecture Schedule</span>
+              <span>Active {currentDayName} Lecture Schedule</span>
             </span>
           </div>
 
-          <table className="w-full text-left text-xs min-w-[700px]">
+          <table className="w-full text-left text-xs min-w-[1000px]">
             <thead className="bg-[#EEF2F8] text-slate-700 font-extrabold uppercase text-[10px] tracking-wider">
               <tr>
-                <th className="p-3 border-r border-[#E2E8F0] w-32">Period & Time</th>
-                <th className="p-3 w-1/5 text-center">MON</th>
-                <th className="p-3 w-1/5 text-center bg-[#0B2C5C] text-white font-black">
-                  TUE (TODAY)
-                </th>
-                <th className="p-3 w-1/5 text-center">WED</th>
-                <th className="p-3 w-1/5 text-center">THU</th>
-                <th className="p-3 w-1/5 text-center">FRI</th>
+                <th className="p-3 border-r border-[#E2E8F0] w-24 text-center">Day</th>
+                {["Period 1", "Period 2", "Period 3", "Period 4", "Lunch Break", "Period 5", "Period 6", "Period 7", "Period 8"].map((period, idx) => (
+                  <th key={period} className={`p-3 text-center border-r border-[#E2E8F0] ${idx === currentPeriodIdx ? "bg-[#0B2C5C] text-white" : ""}`}>
+                    {period === "Lunch Break" ? "Lunch" : period.replace("Period ", "P")}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {Object.entries(weeklySchedule).map(([period, days], idx) => {
-                if (period === "Lunch Break") {
-                  return (
-                    <tr key={idx} className="bg-[#F8FAFC] text-center font-bold text-slate-500 text-[11px]">
-                      <td className="p-2 border-r border-[#E2E8F0] font-mono">LUNCH</td>
-                      <td colSpan={5} className="p-2 uppercase tracking-widest text-slate-600">
-                        12:15 PM – 01:30 PM • LUNCH BREAK
-                      </td>
-                    </tr>
-                  );
-                }
-
+              {["MON", "TUE", "WED", "THU", "FRI"].map((dayKey, rowIdx) => {
+                const isTodayRow = dayKey === currentDayKey;
+                const periodsList = ["Period 1", "Period 2", "Period 3", "Period 4", "Lunch Break", "Period 5", "Period 6", "Period 7", "Period 8"];
+                
                 return (
-                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-3 border-r border-[#E2E8F0] font-mono font-bold text-[#0B2C5C] bg-[#F8FAFC]">
-                      {period}
+                  <tr key={dayKey} className={`hover:bg-slate-50 transition-colors ${isTodayRow ? "bg-blue-50/10" : ""}`}>
+                    <td className={`p-3 border-r border-[#E2E8F0] font-mono font-bold text-center align-middle ${isTodayRow ? "bg-[#0B2C5C] text-white" : "text-[#0B2C5C] bg-[#F8FAFC]"}`}>
+                      {dayKey}
+                      {isTodayRow && <div className="text-[9px] mt-1 text-emerald-400 font-black tracking-widest uppercase">TODAY</div>}
                     </td>
 
-                    {["MON", "TUE", "WED", "THU", "FRI"].map((dayKey) => {
-                      const cell = days[dayKey];
-                      const isTodayCol = dayKey === "TUE";
+                    {periodsList.map((period, idx) => {
+                      if (period === "Lunch Break") {
+                        if (rowIdx === 0) {
+                          return (
+                            <td key={period} rowSpan={5} className="p-2 border-r border-[#E2E8F0] text-center font-bold text-slate-400 text-sm bg-[#F8FAFC] tracking-[0.3em]" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+                              LUNCH BREAK
+                            </td>
+                          );
+                        }
+                        return null;
+                      }
+
+                      const cell = weeklySchedule[period] && weeklySchedule[period][dayKey];
+                      const isCurrentPeriod = isTodayRow && idx === currentPeriodIdx;
 
                       return (
                         <td
-                          key={dayKey}
-                          className={`p-2.5 border-r border-[#E2E8F0] align-top ${
-                            isTodayCol ? "bg-blue-50/20" : ""
-                          }`}
+                          key={period}
+                          className="p-2.5 border-r border-[#E2E8F0] align-top min-w-[150px]"
                         >
                           {cell ? (
                             <div
-                              className={`p-3 rounded-xl border transition-all ${
-                                cell.isCurrent
-                                  ? "border-[#0B2C5C] bg-[#EEF2F8] shadow-sm animate-current-period"
-                                  : "bg-white border-[#E2E8F0] hover:border-slate-400"
-                              }`}
+                              className={`p-3 rounded-xl border transition-all h-full ${isCurrentPeriod
+                                ? "border-[#0B2C5C] bg-[#EEF2F8] shadow-sm animate-current-period"
+                                : "bg-white border-[#E2E8F0] hover:border-slate-400"
+                                }`}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="font-mono text-xs font-black text-[#0B2C5C]">
+                                <span className="font-mono text-[10px] font-black text-[#0B2C5C]">
                                   {cell.code}
                                 </span>
                                 <span
-                                  className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                                    cell.type === "Lab"
-                                      ? "bg-purple-100 text-purple-800"
-                                      : "bg-blue-100 text-blue-800"
-                                  }`}
+                                  className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${cell.type === "Practical" || cell.type === "Lab"
+                                    ? "bg-purple-100 text-purple-800"
+                                    : cell.type === "Skill" 
+                                    ? "bg-orange-100 text-orange-800"
+                                    : "bg-blue-100 text-blue-800"
+                                    }`}
                                 >
                                   {cell.type}
                                 </span>
@@ -174,13 +214,20 @@ export default function TimetablePage() {
                               <div className="font-bold text-slate-900 text-xs mt-1 leading-snug">
                                 {cell.title}
                               </div>
-                              <div className="text-[10px] text-slate-500 mt-1 flex justify-between">
-                                <span>{cell.room}</span>
-                                <span>{cell.faculty}</span>
+                              <div className="text-[9px] text-slate-500 mt-2 flex flex-col space-y-1">
+                                <div className="flex items-center space-x-1">
+                                  <Clock className="w-2.5 h-2.5 opacity-70" />
+                                  <span className="truncate">{cell.faculty}</span>
+                                </div>
+                                <div className="font-mono bg-slate-100 px-1 py-0.5 rounded w-fit">
+                                  {cell.room}
+                                </div>
                               </div>
                             </div>
                           ) : (
-                            <span className="text-slate-300 text-center block py-4">—</span>
+                            <div className="flex items-center justify-center h-full min-h-[80px]">
+                              <span className="text-slate-300">—</span>
+                            </div>
                           )}
                         </td>
                       );

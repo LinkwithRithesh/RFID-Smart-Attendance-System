@@ -56,7 +56,7 @@ router.get(
         id: String(log.id),
         actorId: log.actorId,
         user: log.actor ? log.actor.fullName : 'SYSTEM',
-        role: log.actor ? log.actor.role : 'SYSTEM',
+        role: log.actor ? (log.actor.role?.name || log.actor.role) : 'SYSTEM',
         action: log.action,
         target: `${log.entityType}${log.entityId ? ` #${log.entityId}` : ''}`,
         entityType: log.entityType,

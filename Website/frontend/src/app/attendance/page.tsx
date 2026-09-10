@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -65,7 +65,7 @@ export default function AttendancePage() {
   const handleExportCSV = async () => {
     if (process.env.NEXT_PUBLIC_USE_MOCKS !== "true") {
       const res = await apiClient.downloadBlob(
-        `/reports/statement/export?studentId=${studentRoll}&format=csv`,
+        `/reports/statement/export?studentId=${user?.id || studentRoll}&format=csv`,
         `smartattend_statement_${studentRoll}.csv`
       );
       if (res.success) return;
@@ -89,7 +89,7 @@ export default function AttendancePage() {
   const handleDownloadPDF = async () => {
     if (process.env.NEXT_PUBLIC_USE_MOCKS !== "true") {
       const res = await apiClient.downloadBlob(
-        `/reports/statement/export?studentId=${studentRoll}&format=pdf`,
+        `/reports/statement/export?studentId=${user?.id || studentRoll}&format=pdf`,
         `smartattend_statement_${studentRoll}.pdf`
       );
       if (res.success) return;
@@ -227,13 +227,13 @@ export default function AttendancePage() {
                 <div>
                   <h3 className="text-base font-black text-[#0B2C5C]">Official Academic Attendance Statement</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Generated for Student Roll No: <span className="font-mono font-bold text-[#0B2C5C]">{studentRoll}</span> â€¢ Verified against CeGov Audit Ledger
+                    Generated for Student Roll No: <span className="font-mono font-bold text-[#0B2C5C]">{studentRoll}</span> • Verified against CeGov Audit Ledger
                   </p>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="text-right">
                     <div className="text-xs font-bold text-slate-500 uppercase">Overall Condonation Compliance</div>
-                    <div className="text-xl font-black text-emerald-700 font-mono">{overallStats.overallPercentage}% (Compliant)</div>
+                    <div className="text-xl font-black text-emerald-700 font-mono">{overallStats?.overallPercentage || 0}% (Compliant)</div>
                   </div>
                 </div>
               </div>
@@ -295,7 +295,7 @@ export default function AttendancePage() {
                     {selectedSubject.code}
                   </span>
                   <h3 className="text-base font-black text-[#0B2C5C] mt-1">{selectedSubject.name}</h3>
-                  <p className="text-xs text-slate-500">Monthly Attendance Calendar â€¢ August 2026</p>
+                  <p className="text-xs text-slate-500">Monthly Attendance Calendar • August 2026</p>
                 </div>
                 <button
                   onClick={() => setSelectedSubject(null)}
@@ -335,7 +335,7 @@ export default function AttendancePage() {
                     >
                       <span>{day}</span>
                       <span className="text-[8px] mt-0.5 uppercase">
-                        {isPresent ? "âœ“" : isAbsent ? "âœ•" : isWeekend ? "â€”" : "â€¢"}
+                        {isPresent ? "✓" : isAbsent ? "✕" : isWeekend ? "—" : "•"}
                       </span>
                     </button>
                   );
@@ -358,10 +358,10 @@ export default function AttendancePage() {
                     </span>
                   </div>
                   <div className="text-slate-600">
-                    Timestamp: <strong className="text-slate-800">{calendarLogs[selectedDate].timestamp}</strong> â€¢ Method: <strong className="text-[#0B2C5C]">{calendarLogs[selectedDate].method}</strong>
+                    Timestamp: <strong className="text-slate-800">{calendarLogs[selectedDate].timestamp}</strong> • Method: <strong className="text-[#0B2C5C]">{calendarLogs[selectedDate].method}</strong>
                   </div>
                   <div className="text-slate-500 text-[11px]">
-                    Room: {calendarLogs[selectedDate].room} â€¢ Match Confidence: {calendarLogs[selectedDate].confidence}%
+                    Room: {calendarLogs[selectedDate].room} • Match Confidence: {calendarLogs[selectedDate].confidence}%
                   </div>
                 </div>
               )}

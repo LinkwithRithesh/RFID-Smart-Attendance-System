@@ -5,6 +5,7 @@ import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/services/api";
+import { apiClient } from "@/services/apiClient";
 import { FileDown, FileSpreadsheet } from "lucide-react";
 
 function currentMonthRange() {
@@ -25,16 +26,21 @@ function ReportsContent() {
     setDownloading(format);
     try {
       const { from, to } = currentMonthRange();
-      const { downloadUrl } = await api.getReports({ department: "CSE", format, from, to });
-      const res = await fetch(downloadUrl, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
-      if (!ok(res)) throw new Error("Failed to generate report");
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `cse-attendance-report.${format === "pdf" ? "pdf" : "xlsx"}`;
-      a.click();
-      window.URL.revokeObjectURL(url);
+      const query = new URLSearchParams({
+        department: "CSE",
+        format,
+        from,
+        to,
+      }).toString();
+
+      const result = await apiClient.downloadBlob(
+        `/reports/export?${query}`,
+        `cse-attendance-report.${format === "pdf" ? "pdf" : "xlsx"}`
+      );
+      
+      if (!result.success) {
+        throw new Error(result.error || "Failed to generate report");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to download report");
     } finally {

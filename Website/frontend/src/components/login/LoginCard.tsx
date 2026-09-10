@@ -20,6 +20,8 @@ import {
   Clock,
   Send,
   Sparkles,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/services/api";
@@ -37,6 +39,7 @@ export const LoginCard: React.FC = () => {
   const [captchaCode, setCaptchaCode] = useState("");
   const [captchaInput, setCaptchaInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // New Registration State
   const [regRole, setRegRole] = useState<"STUDENT" | "FACULTY">("STUDENT");
@@ -46,6 +49,8 @@ export const LoginCard: React.FC = () => {
   const [regMobile, setRegMobile] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
   const [regDeptId, setRegDeptId] = useState<number | "">("");
   const [regCourseId, setRegCourseId] = useState<number | "">("");
   const [regSemester, setRegSemester] = useState(1);
@@ -68,18 +73,22 @@ export const LoginCard: React.FC = () => {
   // Forgot password OTP state
   const [otpForgotEmail, setOtpForgotEmail] = useState("");
   const [otpForgotSent, setOtpForgotSent] = useState(false);
-  const [otpForgotCode, setOtpForgotCode] = useState("");
+  const [otpForgotCode, setOtpForgotCode] = useState<string | null>(null);
   const [otpForgotInput, setOtpForgotInput] = useState("");
+  const [otpForgotNewPassword, setOtpForgotNewPassword] = useState("");
   const [forgotResetSuccess, setForgotResetSuccess] = useState(false);
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
 
   const generateCaptcha = () => {
-    const chars = "23456789abcdefghjkmnpqrstuvwxyz";
+    // Removed lower-case and ambiguous characters to avoid visual confusion
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let result = "";
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setCaptchaCode(result);
-    setCaptchaInput(result); // Auto-fill captcha for ease of entry
+    setCaptchaInput(""); // Force manual entry
   };
 
   useEffect(() => {
@@ -173,16 +182,6 @@ export const LoginCard: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    if (regPassword !== regConfirmPassword) {
-      setError("Passwords do not match. Please verify password confirmation.");
-      return;
-    }
-
-    if (regPassword.length < 8) {
-      setError("Password must be at least 8 characters long.");
-      return;
-    }
-
     if (!regDeptId) {
       setError("Please select a valid department.");
       return;
@@ -199,7 +198,6 @@ export const LoginCard: React.FC = () => {
         fullName: regFullName.trim(),
         email: regEmail.trim().toLowerCase(),
         mobile: regMobile.trim(),
-        password: regPassword,
         role: regRole,
         departmentId: Number(regDeptId),
         rfidCardId: regRfid.trim() || undefined,
@@ -301,25 +299,58 @@ export const LoginCard: React.FC = () => {
     }
   };
 
-  const handleSendForgotOtp = (e: React.FormEvent) => {
+  const handleSendForgotOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const generated = Math.floor(100000 + Math.random() * 900000).toString();
-    setOtpForgotCode(generated);
-    setOtpForgotInput(generated);
-    setOtpForgotSent(true);
+    setError(null);
+    setForgotSubmitting(true);
+    try {
+      const res = await api.forgotPassword(otpForgotEmail.trim().toLowerCase());
+      if (res.success) {
+        if (res.devOtp) {
+          setOtpForgotCode(res.devOtp);
+          setOtpForgotInput(""); // Force manual entry
+        } else {
+          setOtpForgotCode(null);
+        }
+        setOtpForgotSent(true);
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to initiate password reset.");
+    } finally {
+      setForgotSubmitting(false);
+    }
   };
 
-  const handleVerifyForgotOtp = (e: React.FormEvent) => {
+  const handleVerifyForgotOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpForgotInput === otpForgotCode) {
-      setForgotResetSuccess(true);
-      setTimeout(() => {
-        setMainTab("LOGIN");
-        setForgotResetSuccess(false);
-        setOtpForgotSent(false);
-      }, 2000);
-    } else {
-      setError("Invalid OTP code. Please enter the correct code.");
+    setError(null);
+    if (!otpForgotInput || otpForgotInput.trim().length !== 6) {
+      setError("Please enter the complete 6-digit OTP code.");
+      return;
+    }
+    if (otpForgotNewPassword.length < 8) {
+      setError("New password must be at least 8 characters long.");
+      return;
+    }
+
+    setForgotSubmitting(true);
+    try {
+      const res = await api.resetPassword(otpForgotEmail.trim().toLowerCase(), otpForgotInput.trim(), otpForgotNewPassword);
+      if (res.success) {
+        setForgotResetSuccess(true);
+        setTimeout(() => {
+          setMainTab("LOGIN");
+          setForgotResetSuccess(false);
+          setOtpForgotSent(false);
+          setOtpForgotEmail("");
+          setOtpForgotInput("");
+          setOtpForgotNewPassword("");
+        }, 2000);
+      }
+    } catch (err: any) {
+      setError(err?.message || "Password reset failed. Please check your OTP.");
+    } finally {
+      setForgotSubmitting(false);
     }
   };
 
@@ -415,14 +446,20 @@ export const LoginCard: React.FC = () => {
             </div>
             <div className="relative">
               <input
-                type="password"
+                type={showLoginPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-slate-900 focus:outline-none focus:border-[#0B2C5C] focus:bg-white font-mono transition-colors shadow-xs"
                 placeholder="••••••••"
               />
-              <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
+              <button
+                type="button"
+                onClick={() => setShowLoginPassword(!showLoginPassword)}
+                className="absolute right-3 top-3 text-slate-400 hover:text-[#0B2C5C] focus:outline-none"
+              >
+                {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
@@ -669,33 +706,7 @@ export const LoginCard: React.FC = () => {
                 />
               </div>
 
-              {/* Password & Confirm Password */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Password *</label>
-                  <input
-                    type="password"
-                    required
-                    minLength={8}
-                    placeholder="Min 8 chars"
-                    value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-slate-900 focus:outline-none focus:border-[#0B2C5C]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Confirm Password *</label>
-                  <input
-                    type="password"
-                    required
-                    minLength={8}
-                    placeholder="Re-type password"
-                    value={regConfirmPassword}
-                    onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-slate-900 focus:outline-none focus:border-[#0B2C5C]"
-                  />
-                </div>
-              </div>
+
 
               {/* Submit Button */}
               <button
@@ -846,25 +857,51 @@ export const LoginCard: React.FC = () => {
             </div>
           ) : (
             <form onSubmit={handleVerifyForgotOtp} className="space-y-3.5 text-xs">
-              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] space-y-1">
-                <div>Simulated OTP code sent to {otpForgotEmail}:</div>
-                <div className="font-mono font-black text-lg text-[#0B2C5C] text-center">{otpForgotCode}</div>
-              </div>
+              {otpForgotCode && (
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] space-y-1">
+                  <div>OTP (Development Mode) sent to {otpForgotEmail}:</div>
+                  <div className="font-mono font-black text-lg text-[#0B2C5C] text-center">{otpForgotCode}</div>
+                </div>
+              )}
               <div>
                 <label className="block text-slate-700 font-bold mb-1">Enter 6-Digit OTP</label>
                 <input
                   type="text"
                   required
+                  maxLength={6}
                   value={otpForgotInput}
                   onChange={(e) => setOtpForgotInput(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 text-center font-mono font-black tracking-widest text-slate-900 text-base"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 text-center font-mono font-black tracking-widest text-slate-900 text-base focus:outline-none focus:border-[#0B2C5C]"
+                  placeholder="000000"
                 />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">New Password</label>
+                <div className="relative">
+                  <input
+                    type={showForgotNewPassword ? "text" : "password"}
+                    required
+                    minLength={8}
+                    value={otpForgotNewPassword}
+                    onChange={(e) => setOtpForgotNewPassword(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-slate-900 focus:outline-none focus:border-[#0B2C5C]"
+                    placeholder="Min 8 chars"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                    className="absolute right-3 top-3 text-slate-400 hover:text-[#0B2C5C] focus:outline-none"
+                  >
+                    {showForgotNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
               <button
                 type="submit"
-                className="w-full py-3 px-4 rounded-full bg-[#F4573C] hover:bg-[#E64A19] text-white font-black text-sm"
+                disabled={forgotSubmitting}
+                className="w-full py-3 px-4 rounded-full bg-[#F4573C] hover:bg-[#E64A19] text-white font-black text-sm disabled:opacity-50"
               >
-                Verify OTP & Reset
+                {forgotSubmitting ? "Verifying..." : "Verify OTP & Reset"}
               </button>
             </form>
           )}

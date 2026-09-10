@@ -113,8 +113,29 @@ async function getStudentStatement(req, res, next) {
 
 async function exportStudentStatement(req, res, next) {
   try {
-    const studentId = req.query.studentId ? Number(req.query.studentId) : req.user?.id;
-    const format = req.query.format === 'pdf' ? 'pdf' : 'csv';
+    let studentId = req.user?.id;
+    if (req.query.studentId && !isNaN(req.query.studentId)) {
+      studentId = Number(req.query.studentId);
+    } else if (req.query.studentId && isNaN(req.query.studentId)) {
+      const student = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { loginId: req.query.studentId },
+            { email: req.query.studentId },
+            { studentProfile: { rollNumber: req.query.studentId } }
+          ]
+        }
+      });
+      if (student) studentId = student.id;
+    }
+
+    const studentInfo = await prisma.user.findUnique({
+      where: { id: studentId },
+      include: {
+        department: true,
+        studentProfile: { include: { course: true } }
+      }
+    });
 
     const subjects = await prisma.subject.findMany({
       include: {
@@ -129,10 +150,17 @@ async function exportStudentStatement(req, res, next) {
       },
     });
 
-    const rows = subjects.map((sub) => {
+    let totalHeld = 0;
+    let totalAttended = 0;
+    
+    const rows = subjects.map((sub, index) => {
       const records = sub.attendanceSessions.flatMap((s) => s.attendances);
       const metrics = calculateAttendanceMetrics(records);
+      totalHeld += metrics.held;
+      totalAttended += metrics.attended;
+      
       return {
+        slNo: index + 1,
         code: sub.code,
         name: sub.name,
         faculty: sub.faculty?.fullName || 'N/A',
@@ -142,10 +170,12 @@ async function exportStudentStatement(req, res, next) {
         absent: metrics.absent,
         late: metrics.late,
         od: metrics.od,
-        percentage: `${metrics.percentage}%`,
+        percentage: metrics.percentage,
         eligibility: metrics.percentage >= 75 ? 'Eligible' : 'Shortage',
       };
     });
+
+    const overallPercentage = totalHeld === 0 ? 100 : Number(((totalAttended / totalHeld) * 100).toFixed(2));
 
     const filename = `attendance_statement_student_${studentId}_${new Date().toISOString().slice(0, 10)}`;
 
@@ -157,7 +187,7 @@ async function exportStudentStatement(req, res, next) {
       const csvData = rows
         .map(
           (r) =>
-            `"${r.code}","${r.name}","${r.faculty}",${r.credits},${r.held},${r.attended},${r.absent},${r.late},${r.od},"${r.percentage}","${r.eligibility}"`
+            `"${r.code}","${r.name}","${r.faculty}",${r.credits},${r.held},${r.attended},${r.absent},${r.late},${r.od},"${r.percentage}%","${r.eligibility}"`
         )
         .join('\n');
       return res.status(200).send(headers + csvData);
@@ -166,19 +196,96 @@ async function exportStudentStatement(req, res, next) {
       res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
 
       const PDFDocument = require('pdfkit');
-      const doc = new PDFDocument({ margin: 40 });
+      const doc = new PDFDocument({ margin: 40, size: 'A4' });
       doc.pipe(res);
 
-      doc.fontSize(16).text('Official Attendance Statement', { align: 'center' });
-      doc.fontSize(10).text('SmartAttend Academic Administration', { align: 'center' });
-      doc.moveDown();
-      doc.text(`Student ID: ${studentId}`);
-      doc.text(`Date of Generation: ${new Date().toLocaleDateString()}`);
-      doc.moveDown();
+      // Header
+      doc.font('Helvetica-Bold').fontSize(14).text('ANNA UNIVERSITY, CHENNAI 600 025', { align: 'center' });
+      doc.fontSize(12).text('University Departments', { align: 'center' });
+      doc.fontSize(12).text("2026-27 ODD SEM - Student's Attendance Report", { align: 'center' });
+      doc.moveDown(1.5);
 
+      const rollNo = studentInfo?.studentProfile?.rollNumber || studentInfo?.loginId || String(studentId);
+      const degreeBranch = `B.E. - ${studentInfo?.studentProfile?.course?.name || 'Electronics and Communication Engineering'}`;
+      const dept = studentInfo?.department?.name || 'Electronics and Communication Engineering';
+      const semester = studentInfo?.studentProfile?.currentSemester ? `${studentInfo.studentProfile.currentSemester} - Semester` : 'XI - Semester';
+      
+      const leftCol = 50;
+      const rightCol = 180;
+      
+      doc.font('Helvetica').fontSize(11);
+      doc.text('Register Number', leftCol, doc.y);
+      doc.text(`:  ${rollNo}`, rightCol, doc.y - 11);
+      doc.moveDown(0.5);
+      
+      doc.text('Degree & Branch', leftCol, doc.y);
+      doc.text(`:  ${degreeBranch}`, rightCol, doc.y - 11);
+      doc.moveDown(0.5);
+      
+      doc.text('Department', leftCol, doc.y);
+      doc.text(`:  ${dept}`, rightCol, doc.y - 11);
+      doc.moveDown(0.5);
+      
+      doc.text('Semester', leftCol, doc.y);
+      doc.text(`:  ${semester}`, rightCol, doc.y - 11);
+      doc.moveDown(2);
+
+      // Table Header
+      const tableTop = doc.y;
+      doc.font('Helvetica-Bold').fontSize(10);
+      
+      const colSl = 50;
+      const colCode = 90;
+      const colTitle = 180;
+      const colAtt = 450;
+      
+      doc.rect(40, tableTop, 515, 20).stroke();
+      doc.text('Sl.No', colSl, tableTop + 5);
+      doc.text('Course Code', colCode, tableTop + 5);
+      doc.text('Course Title', colTitle, tableTop + 5);
+      doc.text('Attendance\n%', colAtt, tableTop + 2, { align: 'center', width: 105 });
+      
+      // Vertical lines for header
+      doc.moveTo(85, tableTop).lineTo(85, tableTop + 20).stroke();
+      doc.moveTo(175, tableTop).lineTo(175, tableTop + 20).stroke();
+      doc.moveTo(450, tableTop).lineTo(450, tableTop + 20).stroke();
+
+      let rowY = tableTop + 20;
+      
+      doc.font('Helvetica').fontSize(9);
       rows.forEach((r) => {
-        doc.fontSize(9).text(`${r.code} - ${r.name}: ${r.attended}/${r.held} (${r.percentage}) [${r.eligibility}]`);
+        doc.rect(40, rowY, 515, 20).stroke();
+        doc.text(String(r.slNo), colSl, rowY + 5, { width: 35, align: 'center' });
+        doc.text(r.code, colCode, rowY + 5);
+        doc.text(r.name, colTitle, rowY + 5);
+        doc.text(Number(r.percentage).toFixed(2), colAtt, rowY + 5, { align: 'center', width: 105 });
+        
+        doc.moveTo(85, rowY).lineTo(85, rowY + 20).stroke();
+        doc.moveTo(175, rowY).lineTo(175, rowY + 20).stroke();
+        doc.moveTo(450, rowY).lineTo(450, rowY + 20).stroke();
+        
+        rowY += 20;
       });
+
+      // Footer Row for Overall Percentage
+      doc.rect(40, rowY, 515, 20).stroke();
+      doc.font('Helvetica-Bold');
+      doc.text('Overall Percentage', 180, rowY + 5, { width: 260, align: 'right' });
+      doc.text(overallPercentage.toFixed(2), colAtt, rowY + 5, { align: 'center', width: 105 });
+      doc.moveTo(450, rowY).lineTo(450, rowY + 20).stroke();
+      
+      doc.moveDown(5);
+      const sigY = doc.y;
+      
+      doc.font('Helvetica').fontSize(11);
+      doc.text('Faculty Advisor', 50, sigY);
+      doc.text('Office Seal', 250, sigY);
+      doc.text('Head of Department', 400, sigY);
+      
+      // Footer text at the bottom
+      doc.fontSize(8);
+      const generatedAt = new Date().toLocaleString();
+      doc.text(`Generated through CeGov Web Portal  ${generatedAt}`, 40, doc.page.height - 50);
 
       doc.end();
     }

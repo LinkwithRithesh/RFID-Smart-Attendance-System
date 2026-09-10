@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -56,7 +56,7 @@ export default function HelpDeskPage() {
     e.preventDefault();
     if (!selectedTicket || !replyMessage.trim()) return;
 
-    await apiClient.post(`/helpdesk/${selectedTicket.id}/replies`, { message: replyMessage }); fetchTickets();
+    await apiClient.post(`/helpdesk/${selectedTicket.id}/messages`, { message: replyMessage }); fetchTickets();
     setReplyMessage("");
   };
 
@@ -234,7 +234,7 @@ export default function HelpDeskPage() {
             <div className="bg-white border border-[#E2E8F0] rounded-2xl max-w-md w-full shadow-2xl p-6 space-y-4 text-slate-800">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <h3 className="text-sm font-black text-[#0B2C5C]">Create New Support Ticket</h3>
-                <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-700">âœ•</button>
+                <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-700">✕</button>
               </div>
 
               <form onSubmit={handleCreateTicket} className="space-y-3 text-xs">

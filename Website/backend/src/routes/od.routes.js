@@ -142,5 +142,28 @@ router.patch('/:id/status', async (req, res, next) => {
   }
 });
 
+// Delete OD Request
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const rawId = req.params.id.replace(/^OD-/, '');
+    const id = Number(rawId);
+    
+    const leave = await prisma.leaveRequest.findUnique({ where: { id } });
+    if (!leave) throw new ApiError(404, 'OD Request not found');
+
+    const effectiveRole = getEffectiveRole(req.user.role);
+    // Students can delete their own; Admins can delete any.
+    if (effectiveRole !== 'ADMIN' && leave.userId !== req.user.id) {
+      throw new ApiError(403, 'You do not have permission to delete this OD request');
+    }
+
+    await prisma.leaveRequest.delete({ where: { id } });
+
+    return success(res, 200, 'OD Request deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
 

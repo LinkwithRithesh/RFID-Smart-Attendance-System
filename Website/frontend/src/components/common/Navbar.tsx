@@ -35,8 +35,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenSidebar }) => {
   }, []);
 
   const role = user?.role || "STUDENT";
-  const userName = user?.name || "Student User";
-  const userId = user?.userId || "2025105002";
+  const userName = user?.name || "User";
+  const userId = user?.userId || "";
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-[#E2E8F0] text-slate-800 h-[56px] flex items-center px-4 sm:px-6 shadow-xs font-sans">
