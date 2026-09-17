@@ -129,6 +129,10 @@ npm run dev
 
 This project combines physical hardware prototyping with a cloud-managed web dashboard. Below are some visuals of our hardware setup and system diagrams.
 
+### 🎥 Video Demonstration
+A complete video demonstration of the project, including hardware operation and cloud attendance logging, is available below:
+🔗 **Watch Demo Videos:** [Google Drive Folder](https://drive.google.com/drive/folders/1vw_WvM3Md_eeNigcoZ_DopTGOFYCARBb)
+
 ### Hardware Prototype
 <p align="center">
 <img src="images/Hardware_Setup.png" width="850" alt="Hardware Setup">
