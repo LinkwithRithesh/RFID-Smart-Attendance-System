@@ -27,6 +27,7 @@ const changePasswordSchema = z.object({
 const forgotPasswordSchema = z.object({
   body: z.object({
     email: z.string().email('Valid email is required'),
+    personalEmail: z.string().email('Valid personal email is required').optional(),
   }),
 });
 

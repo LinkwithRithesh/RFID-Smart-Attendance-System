@@ -530,19 +530,25 @@ function AdminDashboard() {
   });
 
   useEffect(() => {
-    apiClient.get<any>("/dashboard/stats")
-      .then((res) => {
-        if (res.data) {
-          setStats({
-            students: res.data.students || 0,
-            faculty: res.data.faculty || 0,
-            devices: res.data.devices || 0,
-            onlineDevices: res.data.onlineDevices || 0,
-            todayAttendance: res.data.todayAttendance || 0,
-          });
-        }
-      })
-      .catch(() => {});
+    const fetchStats = () => {
+      apiClient.get<any>("/dashboard/stats")
+        .then((res) => {
+          if (res.data) {
+            setStats({
+              students: res.data.students || 0,
+              faculty: res.data.faculty || 0,
+              devices: res.data.devices || 0,
+              onlineDevices: res.data.onlineDevices || 0,
+              todayAttendance: res.data.todayAttendance || 0,
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchStats();
+    const interval = setInterval(fetchStats, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   return (

@@ -61,6 +61,7 @@ model User {
   id                   Int                   @id @default(autoincrement())
   fullName             String                @map("full_name") @db.VarChar(150)
   email                String                @unique(map: "email") @db.VarChar(150)
+  personalEmail        String?               @map("personal_email") @db.VarChar(150)
   passwordHash         String                @map("password_hash") @db.VarChar(255)
   roleId               Int                   @map("role_id")
   departmentId         Int?                  @map("department_id")
@@ -531,6 +532,7 @@ enum OverrideType {
   DEAN
   ADMIN
   HOD
+  FACULTY
 }
 
 enum AttendanceMethod {

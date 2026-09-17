@@ -13,8 +13,10 @@ router.get('/stats', async (req, res, next) => {
     const facultyRole = await prisma.role.findUnique({ where: { name: 'FACULTY' } });
     const totalStudents = studentRole ? await prisma.user.count({ where: { roleId: studentRole.id } }) : 0;
     const totalFaculty = facultyRole ? await prisma.user.count({ where: { roleId: facultyRole.id } }) : 0;
-    const totalDevices = await prisma.device.count({ where: { status: { not: 'DECOMMISSIONED' } } });
-    const onlineDevices = await prisma.device.count({ where: { status: 'ONLINE' } });
+    const allActiveDevices = await prisma.device.findMany({ where: { status: { not: 'DECOMMISSIONED' } } });
+    const totalDevices = allActiveDevices.length;
+    const { computeIsOnline } = require('../utils/deviceOnlineStatus');
+    const onlineDevices = allActiveDevices.filter(d => computeIsOnline(d)).length;
     const today = new Date(); today.setHours(0,0,0,0);
     const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
     const todaySessions = await prisma.attendanceSession.findMany({ where: { sessionDate: { gte: today, lt: tomorrow } }, select: { id: true } });

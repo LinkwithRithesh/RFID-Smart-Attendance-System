@@ -1,10 +1,10 @@
-// Emergency > Dean > Admin > HOD > Automatic (NONE), exactly as specified.
 const OVERRIDE_RANK = {
   NONE: 0,
-  HOD: 1,
-  ADMIN: 2,
-  DEAN: 3,
-  EMERGENCY: 4,
+  FACULTY: 1,
+  HOD: 2,
+  ADMIN: 3,
+  DEAN: 4,
+  EMERGENCY: 5,
 };
 
 function rankOf(overrideType) {

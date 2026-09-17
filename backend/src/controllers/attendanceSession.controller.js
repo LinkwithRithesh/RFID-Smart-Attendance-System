@@ -109,6 +109,7 @@ async function getActiveSessions(req, res, next) {
         room: s.department?.code ? `Hall ${s.department.code}-101` : 'Room 302',
         presentCount: s.attendances.filter((a) => a.status === 'PRESENT' || a.status === 'LATE').length,
         totalEnrolled: totalEnrolled > 0 ? totalEnrolled : 60,
+        sessionDate: s.sessionDate,
         startTime: s.startTime,
         endTime: s.endTime,
         deviceStatus: 'ONLINE'
@@ -122,10 +123,57 @@ async function getActiveSessions(req, res, next) {
   }
 }
 
+async function getPastSessions(req, res, next) {
+  try {
+    const prisma = require('../config/database');
+    const { departmentId, limit = 50, offset = 0 } = req.query;
+
+    const whereClause = {
+      status: { in: ['CLOSED', 'CANCELLED'] }
+    };
+    if (departmentId) {
+      whereClause.departmentId = Number(departmentId);
+    }
+
+    const sessions = await prisma.attendanceSession.findMany({
+      where: whereClause,
+      include: {
+        department: true,
+        subject: true,
+        faculty: true,
+        attendances: true,
+      },
+      orderBy: { sessionDate: 'desc' },
+      take: Number(limit),
+      skip: Number(offset),
+    });
+
+    const past = sessions.map((s) => ({
+      id: s.id,
+      departmentId: s.departmentId,
+      departmentName: s.department?.name,
+      courseCode: s.subject?.code || 'GEN-101',
+      courseName: s.subject?.name || 'Academic Lecture',
+      facultyName: s.faculty?.fullName || 'Faculty Instructor',
+      room: s.department?.code ? `Hall ${s.department.code}-101` : 'Room 302',
+      presentCount: s.attendances.filter((a) => a.status === 'PRESENT' || a.status === 'LATE').length,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      sessionDate: s.sessionDate,
+      status: s.status,
+    }));
+
+    return success(res, 200, 'Past attendance sessions retrieved', past);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   openManualSession,
   closeSession,
   streamSessionEvents,
   getSessionEvents,
   getActiveSessions,
+  getPastSessions,
 };

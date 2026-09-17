@@ -122,6 +122,130 @@ async function verifyRegisterOtp(email, inputOtp) {
     data: {
       fullName: payload.fullName,
       email: payload.email,
+        personalEmail: payload.personalEmail || null,
+      passwordHash,
+      roleId: roleRow.id,
+      departmentId: payload.departmentId ? Number(payload.departmentId) : null,
+      phone: payload.mobile || payload.phone || null,
+      rfidCardId: rfidVal,
+      faceEmbeddingPath,
+      status: 'PENDING',
+      isActive: true,
+      [profileRelation]: { create: profileData },
+    },
+  });
+
+  return {
+    id: user.id,
+    registrationId: regId,
+    status: user.status,
+  };
+}
+
+async function login(emailOrId, password, ipAddress) {
+  const user = await userRepository.findByEmailOrIdentifier(emailOrId);
+  if (!user) {
+    throw new ApiError(401, 'Invalid email or password');
+  }
+
+  const roleName = user.role?.name?.toUpperCase() || '';
+  if (roleName === 'ADMIN') {
+    if (emailOrId !== user.email) {
+      throw new ApiError(401, 'Administrators must log in using their email address.');
+    }
+  } else if (roleName === 'STUDENT' || roleName === 'FACULTY') {
+    if (emailOrId.includes('@')) {
+      throw new ApiError(401, 'Students and Faculty must log in using their Roll Number / Employee ID.');
+    }
+  }
+
+  const passwordMatches = await bcrypt.compare(password, user.passwordHash);
+  if (!passwordMatches) {
+    throw new ApiError(401, 'Invalid email or password');
+  }
+
+  // Status gating per spec
+  if (user.status === 'PENDING') {
+    throw new ApiError(403, 'Your registration is awaiting administrator approval.');
+  }
+  if (user.status === 'REJECTED') {
+    throw new ApiError(403, 'Your registration was rejected. Please contact the administrator.');
+  }
+  if (user.status === 'DISABLED' || !user.isActive) {
+    throw new ApiError(401, 'Invalid email or password');
+  }
+
+  const tokens = await issueTokens(user);
+  await auditLogRepository.log({
+    actorId: user.id,
+    action: 'LOGIN',
+    entityType: 'User',
+    entityId: user.id,
+    ipAddress,
+  });
+
+  return { ...tokens, user: toPublicUser(user) };
+}
+
+async function refresh(refreshToken) {
+  let decoded;
+  try {
+    decoded = verifyRefreshToken(refreshToken);
+  } catch (err) {
+    throw new ApiError(401, 'Invalid or expired refresh token');
+  }
+
+  const user = await userRepository.findById(decoded.sub);
+  if (!user || !user.isActive || user.status !== 'APPROVED' || !user.refreshTokenHash) {
+    throw new ApiError(401, 'Invalid or expired refresh token');
+  }
+
+  const tokenMatches = await bcrypt.compare(refreshToken, user.refreshTokenHash);
+  if (!tokenMatches) {
+    await userRepository.updateRefreshTokenHash(user.id, null);
+    throw new ApiError(401, 'Invalid or expired refresh token');
+  }
+
+  return issueTokens(user);
+}
+
+async function changePassword(userId, oldPassword, newPassword, ipAddress) {
+  const user = await userRepository.findById(userId);
+  if (!user || !user.isActive) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  const matches = await bcrypt.compare(oldPassword, user.passwordHash);
+  if (!matches) {
+    throw new ApiError(400, 'Current password is incorrect');
+  }
+
+  const PASSWORD_SALT_ROUNDS = 10;
+  const newHash = await bcrypt.hash(newPassword, PASSWORD_SALT_ROUNDS);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: newHash },
+  });
+
+  await auditLogRepository.log({
+    actorId: userId,
+    action: 'PASSWORD_CHANGED',
+    entityType: 'User',
+    entityId: userId,
+    ipAddress,
+  });
+
+  return true;
+}
+
+async function logout(userId) {
+  const faceEmbeddingPath = payload.faceFileName ? `uploads/faces/${payload.faceFileName}` : null;
+
+  const user = await prisma.user.create({
+    data: {
+      fullName: payload.fullName,
+      email: payload.email,
       passwordHash,
       roleId: roleRow.id,
       departmentId: payload.departmentId ? Number(payload.departmentId) : null,
@@ -244,6 +368,42 @@ async function logout(userId) {
   }
 }
 
+async function forgotPassword(email) {
+  const user = await userRepository.findByEmailOrIdentifier(email);
+  if (!user || !user.isActive) {
+    throw new ApiError(404, 'User not found.');
+  }
+  const otp = await otpService.generateAndStoreOtp(email, { email });
+  return { otp };
+}
+
+async function resetPassword(email, otp, newPassword, ipAddress) {
+  await otpService.verifyOtp(email, otp);
+  const user = await userRepository.findByEmailOrIdentifier(email);
+  
+  if (!user || !user.isActive) {
+    throw new ApiError(404, 'User not found.');
+  }
+
+  const PASSWORD_SALT_ROUNDS = 10;
+  const newHash = await bcrypt.hash(newPassword, PASSWORD_SALT_ROUNDS);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: newHash },
+  });
+
+  await auditLogRepository.log({
+    actorId: user.id,
+    action: 'PASSWORD_RESET',
+    entityType: 'User',
+    entityId: user.id,
+    ipAddress,
+  });
+
+  return true;
+}
+
 module.exports = {
   register,
   verifyRegisterOtp,
@@ -251,4 +411,6 @@ module.exports = {
   refresh,
   logout,
   changePassword,
+  forgotPassword,
+  resetPassword,
 };

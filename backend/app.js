@@ -100,6 +100,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 app.use('/api/v1/auth', authRoutes);
 const path = require('path');
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/face-recognition', express.static(path.join(__dirname, '..', 'face-recognition')));
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/roles', roleRoutes);
 app.use('/api/v1/devices', deviceRoutes);

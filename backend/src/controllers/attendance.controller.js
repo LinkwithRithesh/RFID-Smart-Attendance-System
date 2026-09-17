@@ -13,7 +13,28 @@ async function markViaDevice(req, res, next) {
 async function markManual(req, res, next) {
   try {
     const payload = req.body;
-    // payload.userId is already the correct userId\n    // No need to resolve it
+    
+    // Check if the provided userId is actually a string (like a roll number)
+    if (typeof payload.userId === 'string') {
+      const prisma = require('../config/database');
+      const ApiError = require('../utils/ApiError');
+      
+      const studentProfile = await prisma.studentProfile.findUnique({
+        where: { rollNumber: payload.userId }
+      });
+      
+      if (studentProfile) {
+        payload.userId = studentProfile.userId;
+      } else {
+        const parsed = parseInt(payload.userId, 10);
+        if (!isNaN(parsed) && parsed.toString() === payload.userId) {
+            payload.userId = parsed;
+        } else {
+            throw new ApiError(404, "Student Roll Number not found.");
+        }
+      }
+    }
+    
     const attendance = await attendanceService.markManual(payload, req.user.id);
     return success(res, 201, 'Attendance marked', attendance);
   } catch (err) {

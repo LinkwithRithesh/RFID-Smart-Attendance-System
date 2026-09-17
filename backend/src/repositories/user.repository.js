@@ -155,10 +155,9 @@ function updateUserWithProfile(id, userData, profileRelation, profileData) {
   });
 }
 
-function deactivateUser(id) {
-  return prisma.user.update({
+function deleteUser(id) {
+  return prisma.user.delete({
     where: { id },
-    data: { isActive: false, refreshTokenHash: null },
   });
 }
 
@@ -173,5 +172,5 @@ module.exports = {
   listUsers,
   updateUser,
   updateUserWithProfile,
-  deactivateUser,
+  deleteUser,
 };

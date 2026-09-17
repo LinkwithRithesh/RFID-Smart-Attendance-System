@@ -62,18 +62,18 @@
 // CONFIGURATION: TIMEOUTS & INTERVALS
 // ============================================================
 
-const unsigned long PYTHON_TIMEOUT_MS = 10000;
-const unsigned long SYNC_INTERVAL_MS = 300000;
+const unsigned long PYTHON_TIMEOUT_MS = 30000;
 const unsigned long HEARTBEAT_INTERVAL_MS = 60000;
+const unsigned long DUPLICATE_SWIPE_COOLDOWN_MS = 3000;
 
 // IMPORTANT:
 // Replace this with your LAPTOP'S CURRENT IPv4 address.
 //
 // Example:
-// http://10.11.141.97:5001
+// http://192.168.137.1:5001
 //
 // The Python Flask gateway must run on port 5001.
-const char* PYTHON_BASE = "http://10.11.141.97:5001";
+const char* PYTHON_BASE = "http://192.168.137.1:5001";
 
 // ============================================================
 // DEVICE CONFIGURATION
@@ -110,16 +110,6 @@ const char* FIRMWARE_VERSION = "1.0.0";
 MFRC522 rfid(SS_PIN, RST_PIN);
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
-
-// ============================================================
-// TIMING
-// ============================================================
-
-const unsigned long HEARTBEAT_INTERVAL_MS = 60000;
-
-const unsigned long DUPLICATE_SWIPE_COOLDOWN_MS = 3000;
-
-const unsigned long PYTHON_TIMEOUT_MS = 30000;
 
 // ============================================================
 // STATE
@@ -174,7 +164,10 @@ void setup() {
   Serial.println(" SMART RFID ATTENDANCE SYSTEM");
   Serial.println(" ESP32 TERMINAL");
   Serial.println("==========================================");
-
+   Serial.println("================================");
+Serial.println("RFID READY");
+Serial.println("Waiting for card...");
+Serial.println("================================");
   // ----------------------------------------------------------
   // BUZZER
   // ----------------------------------------------------------
@@ -207,9 +200,12 @@ void setup() {
   // RC522
   // ----------------------------------------------------------
 
-  SPI.begin();
+ SPI.begin(18, 19, 23, 5);
+rfid.PCD_Init();
+showReadyScreen();
+delay(100);
 
-  rfid.PCD_Init();
+Serial.println("RC522 initialized.");
 
   delay(100);
 
@@ -248,7 +244,7 @@ void loop() {
   // HEARTBEAT
   // ----------------------------------------------------------
 
-  if (
+  /*if (
     WiFi.status() == WL_CONNECTED &&
     millis() - lastHeartbeat >= HEARTBEAT_INTERVAL_MS
   ) {
@@ -257,7 +253,7 @@ void loop() {
 
     lastHeartbeat = millis();
   }
-
+*/
   // ----------------------------------------------------------
   // RFID
   // ----------------------------------------------------------

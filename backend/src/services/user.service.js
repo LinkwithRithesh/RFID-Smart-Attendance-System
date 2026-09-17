@@ -145,7 +145,7 @@ async function updateUser(id, data, requester) {
   if (isSelf) {
     allowedUserFields = {};
     if (userFields.phone !== undefined) allowedUserFields.phone = userFields.phone;
-    if (userFields.email !== undefined) allowedUserFields.email = userFields.email;
+    // Email change by user not allowed
 
     if (profile) {
       allowedProfileFields = {};
@@ -165,6 +165,32 @@ async function updateUser(id, data, requester) {
     allowedProfileFields
   );
 
+  if (updated.rfidCardId && updated.faceEmbeddingPath && updated.faceEmbeddingPath.startsWith('uploads')) {
+    const fs = require('fs');
+    const path = require('path');
+    
+    const sourcePath = path.join(__dirname, '..', '..', updated.faceEmbeddingPath);
+    const targetDir = path.join(__dirname, '..', '..', '..', 'face-recognition', 'faces', updated.rfidCardId);
+    const targetPath = path.join(targetDir, 'face.jpg');
+
+    if (fs.existsSync(sourcePath)) {
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+      fs.copyFileSync(sourcePath, targetPath);
+      fs.unlinkSync(sourcePath);
+      
+      await require('../repositories/user.repository').updateUserWithProfile(
+        numId,
+        { faceEmbeddingPath: `face-recognition/faces/${updated.rfidCardId}/face.jpg` },
+        null,
+        null
+      );
+      
+      updated.faceEmbeddingPath = `face-recognition/faces/${updated.rfidCardId}/face.jpg`;
+    }
+  }
+
   await auditLogRepository.log({
     actorId: requesterObj?.id || numId,
     action: 'USER_UPDATED',
@@ -175,23 +201,20 @@ async function updateUser(id, data, requester) {
   return toPublicUserWithProfile(updated);
 }
 
-async function deactivateUser(id, actorId) {
+async function deleteUser(id, actorId) {
   const existing = await userRepository.findById(id);
   if (!existing) {
     throw new ApiError(404, 'User not found');
   }
-  if (!existing.isActive) {
-    throw new ApiError(409, 'User is already deactivated');
-  }
 
-  await userRepository.deactivateUser(id);
+  await userRepository.deleteUser(id);
 
   await auditLogRepository.log({
     actorId,
-    action: 'USER_DEACTIVATED',
+    action: 'USER_DELETED',
     entityType: 'User',
     entityId: id,
   });
 }
 
-module.exports = { createUser, listUsers, getUser, updateUser, deactivateUser };
+module.exports = { createUser, listUsers, getUser, updateUser, deleteUser };

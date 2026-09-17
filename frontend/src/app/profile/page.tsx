@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -177,7 +177,7 @@ export default function ProfilePage() {
               </div>
 
               <span className="inline-block mt-2 px-3 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200">
-                Active {fullProfile?.role === "STUDENT" ? "Student" : fullProfile?.role} {currentSemester ? `• Semester ${currentSemester}` : ""}
+                Active {fullProfile?.role === "STUDENT" ? "Student" : fullProfile?.role} {currentSemester ? `� Semester ${currentSemester}` : ""}
               </span>
             </div>
 
@@ -259,14 +259,7 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-700 font-bold mb-1">Student Email</label>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900"
-                    />
+                    <label className="block text-slate-700 font-bold mb-1">Institutional Email</label><input type="email" disabled value={email} className="w-full p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 cursor-not-allowed opacity-75" title="Institutional email cannot be changed" />
                   </div>
                   <div>
                     <label className="block text-slate-700 font-bold mb-1">Parent Mobile (SMS Alerts)</label>
@@ -319,7 +312,7 @@ export default function ProfilePage() {
             <div className="bg-white border border-[#E2E8F0] rounded-2xl max-w-sm w-full shadow-2xl p-6 space-y-4 text-slate-800">
               <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                 <h3 className="text-sm font-black text-[#0B2C5C]">Change Account Password</h3>
-                <button type="button" onClick={() => setShowPasswordModal(false)} className="text-slate-400 hover:text-slate-700">×</button>
+                <button type="button" onClick={() => setShowPasswordModal(false)} className="text-slate-400 hover:text-slate-700">�</button>
               </div>
 
               <form onSubmit={handlePasswordChange} className="space-y-3 text-xs">

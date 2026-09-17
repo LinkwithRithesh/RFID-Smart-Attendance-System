@@ -51,6 +51,7 @@ export const LoginCard: React.FC = () => {
   const [regSpecialization, setRegSpecialization] = useState("");
   const [regFullName, setRegFullName] = useState("");
   const [regEmail, setRegEmail] = useState("");
+  const [regPersonalEmail, setRegPersonalEmail] = useState("");
   const [regMobile, setRegMobile] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
@@ -218,7 +219,8 @@ export const LoginCard: React.FC = () => {
       
       const payload: any = {
         fullName: regFullName.trim(),
-        email: `${regMobile.trim()}@temp.local`,
+        email: regPersonalEmail.trim(),
+          personalEmail: regPersonalEmail.trim(),
         mobile: regMobile.trim(),
         role: regRole,
         departmentId: Number(regDeptId),
@@ -294,7 +296,8 @@ export const LoginCard: React.FC = () => {
     try {
       const payload: any = {
         fullName: regFullName.trim(),
-        email: `${regMobile.trim()}@temp.local`,
+        email: regPersonalEmail.trim(),
+          personalEmail: regPersonalEmail.trim(),
         mobile: regMobile.trim(),
         password: regPassword,
         role: regRole,
@@ -642,7 +645,18 @@ export const LoginCard: React.FC = () => {
               </div>
 
               {/* Email & Mobile Grid */}
-              <div className="grid grid-cols-1 gap-2.5">
+              <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">Personal Mail ID *</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. name@gmail.com"
+                      value={regPersonalEmail}
+                      onChange={(e) => setRegPersonalEmail(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] font-mono text-slate-900 focus:outline-none focus:border-[#0B2C5C]"
+                    />
+                  </div>
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">Mobile Number *</label>
                   <input

@@ -22,6 +22,10 @@ function findAllOpenForDepartment(departmentId) {
   return prisma.attendanceSession.findMany({ where: { departmentId, status: 'OPEN' } });
 }
 
+function findAllOpen() {
+  return prisma.attendanceSession.findMany({ where: { status: 'OPEN' } });
+}
+
 function closeSession(id, status = 'CLOSED') {
   return prisma.attendanceSession.update({ where: { id }, data: { status } });
 }
@@ -48,6 +52,7 @@ module.exports = {
   findById,
   findOpenForDepartment,
   findAllOpenForDepartment,
+  findAllOpen,
   findSessionCoveringTimestamp,
   closeSession,
   create,

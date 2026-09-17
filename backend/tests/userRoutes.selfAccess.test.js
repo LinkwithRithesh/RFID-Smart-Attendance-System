@@ -5,7 +5,7 @@ jest.mock('../src/services/user.service', () => ({
   listUsers: jest.fn(),
   getUser: jest.fn(),
   updateUser: jest.fn(),
-  deactivateUser: jest.fn(),
+  deleteUser: jest.fn(),
 }));
 
 const express = require('express');

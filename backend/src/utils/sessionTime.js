@@ -5,7 +5,7 @@ const DEFAULT_LATE_THRESHOLD_MINUTES = 10;
 // with the actual session date to get a real, usable Date.
 function combineDateAndTime(date, time) {
   const combined = new Date(date);
-  combined.setUTCHours(time.getUTCHours(), time.getUTCMinutes(), time.getUTCSeconds(), 0);
+  combined.setHours(time.getUTCHours(), time.getUTCMinutes(), time.getUTCSeconds(), 0);
   return combined;
 }
 

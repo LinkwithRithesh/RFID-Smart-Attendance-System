@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { DashboardShell } from "@/components/layout/DashboardShell";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2, Plus, X, Play } from "lucide-react";
 
 export default function AdminSessionsPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [session, setSession] = useState<any>(null);
+  const [pastSessions, setPastSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +38,7 @@ export default function AdminSessionsPage() {
 
   useEffect(() => {
     fetchActiveSession();
+    fetchPastSessions();
   }, [token]);
 
   const fetchActiveSession = async () => {
@@ -58,6 +61,20 @@ export default function AdminSessionsPage() {
     }
   };
 
+  const fetchPastSessions = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/v1/attendance-sessions/past", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPastSessions(data.data || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const startSession = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -77,7 +94,8 @@ export default function AdminSessionsPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setSession(data.data);
+        await fetchActiveSession(); // Re-fetch to get populated names instead of raw Prisma object
+        await fetchPastSessions();
         localStorage.setItem("activeSessionId", data.data.id);
         setError(null);
       } else {
@@ -97,6 +115,7 @@ export default function AdminSessionsPage() {
       const data = await res.json();
       if (data.success) {
         setSession(null);
+        await fetchPastSessions();
       } else {
         setError("Failed to close session.");
       }
@@ -108,7 +127,8 @@ export default function AdminSessionsPage() {
   if (loading) return <div className="p-8 flex justify-center"><Loader2 className="animate-spin" /></div>;
 
   return (
-    <div className="p-6 space-y-6">
+    <DashboardShell allowedRoles={["ADMIN", "FACULTY", "DEAN", "HOD", "ADMINISTRATOR"] as any}>
+      <div className="p-6 space-y-6">
       <PageHeader
         title="Attendance Sessions"
         subtitle="Start and close hardware/rfid attendance sessions."
@@ -120,9 +140,9 @@ export default function AdminSessionsPage() {
           <h2 className="text-xl font-bold text-slate-800 mb-4">Active Session</h2>
           <div className="grid grid-cols-2 gap-4 text-sm mb-6">
             <div><span className="font-semibold text-slate-500">ID:</span> {session.id}</div>
-            <div><span className="font-semibold text-slate-500">Subject:</span> {session.subject}</div>
-            <div><span className="font-semibold text-slate-500">Faculty:</span> {session.faculty}</div>
-            <div><span className="font-semibold text-slate-500">Department:</span> {session.department}</div>
+            <div><span className="font-semibold text-slate-500">Subject:</span> {session.courseName || session.subject || "N/A"}</div>
+            <div><span className="font-semibold text-slate-500">Faculty:</span> {session.facultyName || session.faculty || "N/A"}</div>
+            <div><span className="font-semibold text-slate-500">Department:</span> {session.departmentName || session.department || "N/A"}</div>
             <div><span className="font-semibold text-slate-500">Status:</span> <span className="text-emerald-600 font-bold">{session.status}</span></div>
             <div><span className="font-semibold text-slate-500">Start Time:</span> {new Date(session.startTime).toLocaleString()}</div>
           </div>
@@ -164,7 +184,9 @@ export default function AdminSessionsPage() {
             <label className="block text-sm font-semibold text-slate-700 mb-1">Subject (Code)</label>
             <select required value={subject} onChange={e => setSubject(e.target.value)} className="w-full border border-slate-300 rounded px-3 py-2">
 <option value="">Select Subject</option>
-{subjectsList.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
+{subjectsList
+  .filter(s => !faculty || String(s.facultyId) === String(faculty))
+  .map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
 </select>
           </div>
 
@@ -172,7 +194,19 @@ export default function AdminSessionsPage() {
             <label className="block text-sm font-semibold text-slate-700 mb-1">Faculty</label>
             <select required value={faculty} onChange={e => setFaculty(e.target.value)} className="w-full border border-slate-300 rounded px-3 py-2">
 <option value="">Select Faculty</option>
-{facultiesList.map(f => <option key={f.id} value={f.id}>{f.fullName} ({f.department?.name || "Faculty"})</option>)}
+{facultiesList
+  .filter(f => {
+    if (user?.role === "FACULTY") {
+      return String(f.id) === String(user.id);
+    }
+    if (!subject) return true;
+    const selectedSubject = subjectsList.find(s => String(s.id) === String(subject));
+    if (selectedSubject && selectedSubject.facultyId) {
+      return String(selectedSubject.facultyId) === String(f.id);
+    }
+    return true; // if subject has no specific faculty, show all
+  })
+  .map(f => <option key={f.id} value={f.id}>{f.fullName} ({f.department?.name || "Faculty"})</option>)}
 </select>
           </div>
 
@@ -187,6 +221,40 @@ export default function AdminSessionsPage() {
           </button>
         </form>
       )}
+
+      {/* Past Sessions Table */}
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mt-8 overflow-x-auto">
+        <h2 className="text-xl font-bold text-slate-800 mb-4">Past Sessions</h2>
+        {pastSessions.length === 0 ? (
+          <p className="text-slate-500">No past sessions found.</p>
+        ) : (
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="py-3 px-4 font-semibold text-slate-600">ID</th>
+                <th className="py-3 px-4 font-semibold text-slate-600">Course</th>
+                <th className="py-3 px-4 font-semibold text-slate-600">Faculty</th>
+                <th className="py-3 px-4 font-semibold text-slate-600">Date & Time</th>
+                <th className="py-3 px-4 font-semibold text-slate-600">Present</th>
+                <th className="py-3 px-4 font-semibold text-slate-600">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pastSessions.map(s => (
+                <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="py-3 px-4 text-sm text-slate-700">{s.id}</td>
+                  <td className="py-3 px-4 text-sm text-slate-700">{s.courseName} ({s.courseCode})</td>
+                  <td className="py-3 px-4 text-sm text-slate-700">{s.facultyName}</td>
+                  <td className="py-3 px-4 text-sm text-slate-700">{new Date(s.sessionDate).toLocaleDateString()} {new Date(s.startTime).toLocaleTimeString()}</td>
+                  <td className="py-3 px-4 text-sm text-slate-700 font-medium text-emerald-600">{s.presentCount}</td>
+                  <td className="py-3 px-4 text-sm font-semibold text-slate-500">{s.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
+    </DashboardShell>
   );
 }

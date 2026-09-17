@@ -2,8 +2,8 @@
 // lifecycle state. "isOnline" is a derived, live signal based on whether a
 // heartbeat has arrived recently — kept separate so we don't need a
 // background cron job just to flip a stored flag back to OFFLINE.
-// Heartbeat threshold: 30 seconds as specified in the frontend contract.
-const HEARTBEAT_THRESHOLD_SECONDS = 30;
+// Heartbeat threshold: 90 seconds to safely accommodate the firmware's 60-second heartbeat interval.
+const HEARTBEAT_THRESHOLD_SECONDS = 90;
 
 function computeSecondsSinceHeartbeat(deviceOrDate, now = new Date()) {
   if (!deviceOrDate) return null;

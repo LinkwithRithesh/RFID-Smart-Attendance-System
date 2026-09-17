@@ -42,6 +42,8 @@ export default function DevicesPage() {
 
   useEffect(() => {
     fetchDevices();
+    const interval = setInterval(fetchDevices, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleTestBuzzer = async (id: string, code: string) => {

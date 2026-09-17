@@ -28,7 +28,7 @@ if os.path.exists(env_path):
 
 # IMPORTANT:
 # Put your existing ESP32 device API key here locally.
-DEVICE_API_KEY = os.environ.get("DEVICE_API_KEY", "PLACEHOLDER_KEY")
+DEVICE_API_KEY = os.environ.get("7d5d39b1aaaba5c6c8d2eed73a258635ae6bd770d4c0e1c733f7309228378f69", "PLACEHOLDER_KEY")
 
 
 # ============================================================
@@ -68,7 +68,7 @@ def backend_headers():
     return {
         "Content-Type": "application/json",
         "X-Device-Code": "ESP32-ECE-01",
-        "X-Device-API-Key": DEVICE_API_KEY
+        "X-Device-API-Key": "7d5d39b1aaaba5c6c8d2eed73a258635ae6bd770d4c0e1c733f7309228378f69"
     }
 
 

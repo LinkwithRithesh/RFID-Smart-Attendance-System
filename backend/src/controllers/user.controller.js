@@ -37,13 +37,13 @@ async function updateUser(req, res, next) {
   }
 }
 
-async function deactivateUser(req, res, next) {
+async function deleteUser(req, res, next) {
   try {
-    await userService.deactivateUser(req.params.id, req.user.id);
-    return success(res, 200, 'User deactivated');
+    await userService.deleteUser(req.params.id, req.user.id);
+    return success(res, 200, 'User deleted');
   } catch (err) {
     next(err);
   }
 }
 
-module.exports = { createUser, listUsers, getUser, updateUser, deactivateUser };
+module.exports = { createUser, listUsers, getUser, updateUser, deleteUser };

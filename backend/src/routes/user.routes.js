@@ -24,6 +24,6 @@ router.patch('/:id', validate(userIdParamSchema), validate(updateUserSchema), us
 router.use(authorize('ADMIN'));
 router.post('/', validate(createUserSchema), userController.createUser);
 router.get('/', validate(listUsersQuerySchema), userController.listUsers);
-router.delete('/:id', validate(userIdParamSchema), userController.deactivateUser);
+router.delete('/:id', validate(userIdParamSchema), userController.deleteUser);
 
 module.exports = router;

@@ -1,3 +1,4 @@
+const emailService = require('../services/email.service');
 const prisma = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const auditLogRepository = require('../repositories/auditLog.repository');
@@ -181,6 +182,30 @@ async function approveRegistration(req, res, next) {
       include: { role: true },
     });
 
+    if (rfidCardId && user.faceEmbeddingPath) {
+      const fs = require('fs');
+      const path = require('path');
+      
+      const sourcePath = path.join(__dirname, '..', '..', user.faceEmbeddingPath);
+      const targetDir = path.join(__dirname, '..', '..', '..', 'face-recognition', 'faces', rfidCardId);
+      const targetPath = path.join(targetDir, 'face.jpg');
+
+      if (fs.existsSync(sourcePath)) {
+        if (!fs.existsSync(targetDir)) {
+          fs.mkdirSync(targetDir, { recursive: true });
+        }
+        fs.copyFileSync(sourcePath, targetPath);
+        // Update the user's faceEmbeddingPath to point to the new location (optional, or just leave it)
+        // We'll also remove the temp file
+        fs.unlinkSync(sourcePath);
+        
+        await prisma.user.update({
+          where: { id },
+          data: { faceEmbeddingPath: `face-recognition/faces/${rfidCardId}/face.jpg` }
+        });
+      }
+    }
+
     await auditLogRepository.log({
       actorId: req.user.id,
       action: 'REGISTRATION_APPROVED',
@@ -188,6 +213,34 @@ async function approveRegistration(req, res, next) {
       entityId: id,
       ipAddress: req.ip,
     });
+
+    
+    const emailTarget = updated.personalEmail || user.personalEmail || user.email;
+    if (emailTarget) {
+      const actualId = roleName === 'STUDENT' ? rollNumber : employeeId;
+      const passText = (actualId && actualId.toString().length >= 4) ? actualId.toString().slice(-4) : actualId;
+      
+      const emailText = `Dear ${updated.fullName},
+
+Congratulations! You have been successfully approved and selected as a ${roleName.charAt(0).toUpperCase() + roleName.slice(1).toLowerCase()} in our institution. We are incredibly proud to welcome you to the Smart Campus!
+
+Your official account has been provisioned. Below are your login credentials:
+
+Login ID / Official Email: ${updated.email}
+Assigned ${roleName === 'STUDENT' ? 'Enrollment Number' : 'Employee ID'}: ${actualId}
+Password: ${passText}
+
+Please log in to the SmartAttend portal using the credentials above. We highly recommend changing your password upon your first login.
+
+Welcome aboard!
+SmartAttend Admin Team`;
+
+      await emailService.sendEmail({
+        to: emailTarget,
+        subject: `Application Approved - Welcome to SmartAttend!`,
+        text: emailText
+      });
+    }
 
     return success(res, 200, 'Registration approved successfully', {
       id: updated.id,

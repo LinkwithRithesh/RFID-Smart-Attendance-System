@@ -6,7 +6,7 @@ jest.mock('../src/repositories/user.repository', () => ({
   listUsers: jest.fn(),
   updateUser: jest.fn(),
   updateUserWithProfile: jest.fn(),
-  deactivateUser: jest.fn(),
+  deleteUser: jest.fn(),
 }));
 jest.mock('../src/repositories/role.repository', () => ({
   findByName: jest.fn(),
@@ -147,26 +147,21 @@ describe('updateUser', () => {
   });
 });
 
-describe('deactivateUser', () => {
+describe('deleteUser', () => {
   test('throws 404 when the user does not exist', async () => {
     userRepository.findById.mockResolvedValue(null);
-    await expect(userService.deactivateUser(999, 1)).rejects.toMatchObject({ statusCode: 404 });
+    await expect(userService.deleteUser(999, 1)).rejects.toMatchObject({ statusCode: 404 });
   });
 
-  test('throws 409 when the user is already deactivated', async () => {
-    userRepository.findById.mockResolvedValue(makeUser({ isActive: false }));
-    await expect(userService.deactivateUser(5, 1)).rejects.toMatchObject({ statusCode: 409 });
-  });
-
-  test('deactivates an active user and logs the action', async () => {
+  test('deletes a user and logs the action', async () => {
     userRepository.findById.mockResolvedValue(makeUser({ isActive: true }));
-    userRepository.deactivateUser.mockResolvedValue({});
+    userRepository.deleteUser.mockResolvedValue({});
 
-    await userService.deactivateUser(5, 1);
+    await userService.deleteUser(5, 1);
 
-    expect(userRepository.deactivateUser).toHaveBeenCalledWith(5);
+    expect(userRepository.deleteUser).toHaveBeenCalledWith(5);
     expect(auditLogRepository.log).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'USER_DEACTIVATED', entityId: 5 })
+      expect.objectContaining({ action: 'USER_DELETED', entityId: 5 })
     );
   });
 });

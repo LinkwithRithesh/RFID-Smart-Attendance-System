@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -60,6 +60,43 @@ export default function LiveAttendancePage() {
   useEffect(() => { if(activeSessionInfo) setPresentCount(activeSessionInfo.presentCount || 0); }, [activeSessionInfo]);
 
   const [feed, setFeed] = useState<LiveFeedItem[]>([]);
+  const [elapsedTime, setElapsedTime] = useState("00:00:00");
+
+    useEffect(() => {
+      let interval: NodeJS.Timeout;
+      if (sessionActive && activeSessionInfo?.startTime && activeSessionInfo?.sessionDate) {
+        interval = setInterval(() => {
+          const sessionDate = new Date(activeSessionInfo.sessionDate);
+          const timeParts = new Date(activeSessionInfo.startTime);
+          const endParts = new Date(activeSessionInfo.endTime);
+
+          const start = new Date(sessionDate);
+          start.setHours(timeParts.getUTCHours(), timeParts.getUTCMinutes(), timeParts.getUTCSeconds(), 0);
+
+          const end = new Date(sessionDate);
+          end.setHours(endParts.getUTCHours(), endParts.getUTCMinutes(), endParts.getUTCSeconds(), 0);
+
+          const now = new Date().getTime();
+
+          if (now >= end.getTime()) {
+            setSessionActive(false);
+            setActiveSessionInfo(null);
+            localStorage.removeItem('activeSessionId');
+            clearInterval(interval);
+            return;
+          }
+
+          const diff = Math.max(0, now - start.getTime());
+          const h = Math.floor(diff / 3600000).toString().padStart(2, '0');
+          const m = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+          const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+          setElapsedTime(`${h}:${m}:${s}`);
+        }, 1000);
+      } else {
+        setElapsedTime("00:00:00");
+      }
+      return () => clearInterval(interval);
+    }, [sessionActive, activeSessionInfo]);
 
   
   const handleCloseSession = async () => {
@@ -100,10 +137,10 @@ export default function LiveAttendancePage() {
 
   // Realtime SSE stream integration
   useEffect(() => {
-    if (!sessionActive) return;
+    if (!sessionActive || !activeSessionInfo) return;
 
     // Connect to active attendance session SSE stream
-    const sessionId = typeof window !== "undefined" ? localStorage.getItem("activeSessionId") || "1" : "1";
+    const sessionId = activeSessionInfo.id;
     const unsubscribeStream = realtimeService.subscribe(`session:${sessionId}`, (data: any) => {
       if (!data) return;
       const now = new Date();
@@ -112,8 +149,8 @@ export default function LiveAttendancePage() {
       const newScan: LiveFeedItem = {
         id: String(data.id || Date.now()),
         time: data.time || nowTime,
-        studentName: data.studentName || data.user?.fullName || "Student",
-        rollNo: data.studentRoll || data.user?.studentProfile?.rollNumber || "",
+        studentName: data.studentName || data.name || data.user?.fullName || "Student",
+        rollNo: data.studentRoll || data.rollNo || data.user?.studentProfile?.rollNumber || "",
         room: data.room || "Room 302",
         method: data.method || "RFID Turnstile",
         status: data.status || "PRESENT",
@@ -132,7 +169,7 @@ export default function LiveAttendancePage() {
       unsubscribeStream();
       unsubscribeConn();
     };
-  }, [sessionActive]);
+  }, [sessionActive, activeSessionInfo]);
 
 
   const handleManualOverride = (e: React.FormEvent) => {
@@ -174,6 +211,13 @@ export default function LiveAttendancePage() {
           categoryTag="REAL-TIME TELEMETRY MONITOR"
           action={
             <div className="flex items-center space-x-2">
+              <button
+                onClick={() => window.open('/admin/sessions', '_blank')}
+                className="px-4 py-2 rounded-full bg-slate-100 border border-slate-200 hover:bg-slate-200 text-[#0B2C5C] font-bold text-xs flex items-center space-x-1.5 shadow-xs"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Past Sessions</span>
+              </button>
               <button
                 onClick={() => setSessionActive(!sessionActive)}
                 className={`px-4 py-2 rounded-full font-bold text-xs flex items-center space-x-1.5 shadow-xs transition-colors ${
@@ -224,7 +268,7 @@ export default function LiveAttendancePage() {
                     : "bg-amber-100 text-amber-800 border-amber-300"
                 }`}>
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-dot" />
-                  <span>{sessionActive ? "SESSION ACTIVE" : "SESSION PAUSED"}</span>
+                  <span>{sessionActive ? `SESSION ACTIVE - ${elapsedTime}` : "SESSION PAUSED"}</span>
                 </span>
               </div>
               <h2 className="text-xl font-black text-[#0B2C5C] mt-1">{activeSessionInfo?.courseName || "No Active Class Selected"}</h2>

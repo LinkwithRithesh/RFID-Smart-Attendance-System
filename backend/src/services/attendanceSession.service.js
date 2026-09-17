@@ -20,6 +20,13 @@ async function closeExpiredSessions(departmentId, now) {
   return openSessions.filter((s) => !expired.includes(s));
 }
 
+async function closeAllExpiredSessions(now = new Date()) {
+  const openSessions = await sessionRepository.findAllOpen();
+  const expired = openSessions.filter((s) => isExpired(s, now));
+  await Promise.all(expired.map((s) => sessionRepository.closeSession(s.id, 'CLOSED')));
+  return expired.length;
+}
+
 /**
  * The core of the timetable engine: close anything that's timed out, return
  * whatever's still legitimately open (manual override or a previous
@@ -182,4 +189,4 @@ async function resolveHistoricalSession(departmentId, timestamp) {
   });
 }
 
-module.exports = { resolveActiveSession, openManualSession, closeSessionManually, resolveHistoricalSession };
+module.exports = { resolveActiveSession, openManualSession, closeSessionManually, resolveHistoricalSession, closeAllExpiredSessions };

@@ -10,6 +10,9 @@ const router = express.Router();
 // Public/Authenticated active session view for classroom telemetry map
 router.get('/active', authenticate, attendanceSessionController.getActiveSessions);
 
+// Admin/Faculty view for past (closed/cancelled) sessions
+router.get('/past', authenticate, authorize('ADMINISTRATOR', 'ADMIN', 'DEAN', 'HOD', 'FACULTY'), attendanceSessionController.getPastSessions);
+
 // Real-time SSE stream for a specific session
 router.get('/:id/stream', authenticate, attendanceSessionController.streamSessionEvents);
 
