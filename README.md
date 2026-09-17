@@ -125,6 +125,72 @@ npm run dev
 
 ---
 
+## 📸 System Demonstration & Hardware
+
+This project combines physical hardware prototyping with a cloud-managed web dashboard. Below are some visuals of our hardware setup and system diagrams.
+
+### Hardware Prototype
+<p align="center">
+<img src="images/Hardware_Setup.png" width="850" alt="Hardware Setup">
+</p>
+
+> **Actual hardware implementation using NodeMCU ESP8266, MFRC522 RFID Reader, 16×2 I2C LCD, and Active Buzzer.**
+
+### Circuit Diagram
+<p align="center">
+<img src="images/Circuit_Diagram.png" width="850" alt="Circuit Diagram">
+</p>
+
+---
+
+## 🔌 Hardware Wiring & Pinouts
+
+<details>
+<summary><b>Click to expand hardware wiring instructions</b></summary>
+
+### MFRC522 RFID Reader
+
+| MFRC522 Pin | NodeMCU Pin |
+|--------------|-------------|
+| SDA (SS) | D4 (GPIO2) |
+| SCK | D5 (GPIO14) |
+| MOSI | D7 (GPIO13) |
+| MISO | D6 (GPIO12) |
+| RST | D3 (GPIO0) |
+| VCC | 3.3V |
+| GND | GND |
+
+### 16×2 LCD Display (I2C)
+
+| LCD Pin | NodeMCU Pin |
+|----------|-------------|
+| SDA | D2 (GPIO4) |
+| SCL | D1 (GPIO5) |
+| VCC | VIN (5V) |
+| GND | GND |
+
+### Active Buzzer
+
+| Buzzer Pin | NodeMCU Pin |
+|------------|-------------|
+| Positive (+) | D8 (GPIO15) |
+| Negative (-) | GND |
+
+</details>
+
+---
+
+## 🎮 Wokwi Simulation
+
+Don't have the hardware? A complete simulation of the IoT firmware is available on Wokwi!
+
+🔗 **Wokwi Project:** [https://wokwi.com/projects/468725509737183233](https://wokwi.com/projects/468725509737183233)
+
+> **Note on the Simulator:** 
+> Wokwi provides better peripheral compatibility using the **ESP32** platform. While the actual physical hardware implementation and firmware can target the NodeMCU ESP8266, the simulation uses an ESP32 to demonstrate the same attendance workflow and peripheral interactions seamlessly over the cloud.
+
+---
+
 ## 📂 Repository Structure
 
 ```text
@@ -142,5 +208,5 @@ RFID-Smart-Attendance-System
 ---
 
 <div align="center">
-<i>Built to demonstrate the integration of Embedded Systems, AI, and Modern Web Architectures.</i>
+<i>Built to demonstrate the seamless integration of Embedded Systems, AI, and Modern Web Architectures.</i>
 </div>
