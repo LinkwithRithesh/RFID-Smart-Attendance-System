@@ -47,22 +47,25 @@ The system is now a complete ecosystem serving Students, Faculty, and Administra
 ## 🏗️ System Architecture
 
 ```text
- ┌────────────────┐       ┌─────────────────┐       ┌────────────────┐
- │ IoT Hardware   │       │  Face AI Script │       │ Web Dashboard  │
- │ (ESP32 + RFID) │       │    (Python)     │       │   (Next.js)    │
- └──────┬─────────┘       └────────┬────────┘       └───────┬────────┘
-        │ (REST API)               │ (REST API)             │ (REST API / SSE)
-        ▼                          ▼                        ▼
- ┌───────────────────────────────────────────────────────────────────┐
- │                       Node.js / Express Backend                   │
- │   - JWT Auth   - Role Guards   - SSE Live Streams  - Analytics    │
- └─────────────────────────────────┬─────────────────────────────────┘
-                                   │ (Prisma ORM)
-                                   ▼
- ┌───────────────────────────────────────────────────────────────────┐
- │                           MySQL Database                          │
- │  (Users, Attendance, Sessions, Devices, Timetables, OD Requests)  │
- └───────────────────────────────────────────────────────────────────┘
+ ┌──────────────────────┐        ┌─────────────────────────┐        ┌──────────────────────┐
+ │ ESP32 IoT Terminal   │        │ Python AI Gateway       │        │ Web Dashboard        │
+ │ (RC522 + LCD + Buzzer)        │ (Flask + DeepFace 512)  │        │ (Next.js 15 + React) │
+ └──────────┬───────────┘        └────────────┬────────────┘        └──────────┬───────────┘
+            │                                 │                                │
+            │ (1) POST /rfid                  │ (3) POST /attendance/mark      │ (REST API & SSE)
+            ▼                                 │                                ▼
+ ┌────────────────────────────────────────┐   │     ┌──────────────────────────────────────────┐
+ │ Python Edge Gateway (Port 5001)        │───┘     │ Node.js / Express Backend (Port 5000)    │
+ │ - Validates RFID card                  │         │ - JWT Auth & Role-Based Access Control   │
+ │ - OpenCV Haar Face Box Detection       │         │ - Real-Time SSE Attendance Streams       │
+ │ - DeepFace Facenet512 Verification     │         │ - Timetables, Sessions & Analytics       │
+ └────────────────────────────────────────┘         └────────────────────┬─────────────────────┘
+                                                                         │ (Prisma ORM)
+                                                                         ▼
+                                                    ┌──────────────────────────────────────────┐
+                                                    │ MySQL Database                           │
+                                                    │ (Users, Sessions, Attendance, Devices)   │
+                                                    └──────────────────────────────────────────┘
 ```
 
 ---
@@ -71,24 +74,24 @@ The system is now a complete ecosystem serving Students, Faculty, and Administra
 
 | Category | Technologies Used |
 |----------|-------------------|
-| **Frontend** | Next.js, React, Tailwind CSS, TypeScript |
-| **Backend** | Node.js, Express.js, Server-Sent Events (SSE) |
-| **Database & ORM** | MySQL, Prisma ORM |
-| **IoT / Hardware** | ESP8266 / ESP32, MFRC522 RFID, C++ (Arduino IDE) |
-| **AI / Biometrics**| Python, OpenCV, `face_recognition` |
+| **Frontend** | Next.js 15, React 19, Tailwind CSS, TypeScript, Lucide Icons |
+| **Backend** | Node.js, Express.js, Prisma ORM, Server-Sent Events (SSE), JWT, Zod |
+| **Database** | MySQL 8.0+ |
+| **IoT / Firmware** | ESP32, RC522 RFID, 16×2 I2C LCD, Active Buzzer, Arduino C++ |
+| **AI / Biometrics** | Python 3.10+, OpenCV, DeepFace (`Facenet512` model, cosine distance) |
 | **Simulation** | Wokwi |
 
 ---
 
 ## ✨ Key Features
 
-1. **Multi-Factor Attendance**: Mark attendance via physical RFID cards or AI-based Face Recognition.
-2. **Role-Based Access Control (RBAC)**: Distinct dashboards and permissions for Students, Faculty (HOD/Dean), and Admins.
-3. **Real-Time Live Tracking**: SSE-powered live class attendance streams (see attendance marked in real-time on the dashboard).
-4. **Hardware Telemetry**: Monitor IoT turnstiles and scanners' online status, heartbeats, and firmware versions directly from the web dashboard.
-5. **Analytics & Predictions**: Mathematical attendance tracking calculating streaks, safe misses, and classes required to hit the 75% threshold.
-6. **OD (On-Duty) Lifecycle**: Digital workflows for students to request OD, featuring Faculty and Admin multi-level approvals.
-7. **Data Export & Reporting**: Downloadable PDF and Excel (CSV) attendance statements generated securely on the server.
+1. **Dual-Factor Attendance**: RFID tap initiates automated edge face authentication via camera using DeepFace (Facenet512) before marking attendance.
+2. **Role-Based Access Control (RBAC)**: Dedicated portal dashboards and permission levels for Students, Faculty (HOD/Dean), and System Admins.
+3. **Live Streaming Dashboard**: SSE-powered live class attendance telemetry, showing student scans and verifications in real-time.
+4. **IoT Device Management**: Track turnstile and terminal heartbeats, device codes, API keys, and statuses directly from the administrator panel.
+5. **Intelligent Attendance Analytics**: Computes streaks, attendance percentages, margin/safe skips, and required classes to meet 75% requirements.
+6. **Digital OD (On-Duty) Lifecycle**: Paperless on-duty request submissions with faculty recommendation and admin approval steps.
+7. **Automated Reports**: Export compliant PDF statements and Excel/CSV spreadsheets on-demand.
 
 ---
 
@@ -99,19 +102,19 @@ The system is now a complete ecosystem serving Students, Faculty, and Administra
 cd backend
 npm install
 npx prisma generate
-mysql -u root < prisma/schema.sql
-mysql -u root smart_campus_attendance < prisma/seed.sql
-mysql -u root smart_campus_attendance < prisma/seed-admin.sql
+mysql -u root -p < prisma/schema.sql
+mysql -u root -p smart_campus_attendance < prisma/seed.sql
+mysql -u root -p smart_campus_attendance < prisma/seed-admin.sql
 ```
 
-### 2. Start the Backend (Node.js)
+### 2. Start the Backend Server (Port 5000)
 ```bash
 # In the backend directory
-cp .env.example .env # (Update with your DB credentials)
+cp .env.example .env # Configure DATABASE_URL, JWT_SECRET, and PORT
 npm run dev
 ```
 
-### 3. Start the Frontend (Next.js)
+### 3. Start the Frontend Dashboard (Port 3000)
 ```bash
 cd frontend
 npm install
@@ -119,15 +122,30 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
-### 4. Run Hardware & AI
-- **Hardware:** Flash the firmware in the `firmware/` directory to an ESP32 or ESP8266 via Arduino IDE.
-- **AI Face Recognition:** Navigate to `face-recognition/`, install Python requirements, and run `code.py`.
+### 4. Start the Face Recognition Gateway (Port 5001)
+```bash
+cd face-recognition
+python -m venv venv
+venv\Scripts\activate   # On Linux/macOS: source venv/bin/activate
+pip install -r requirements.txt   # (Flask, deepface, opencv-python, requests)
+python code.py
+```
+
+### 5. Flash Firmware to ESP32 Terminal
+- Open `firmware/esp32-terminal/esp32_classroom_terminal/esp32_classroom_terminal.ino` in Arduino IDE.
+- Create `secrets.h` alongside the `.ino` file:
+  ```cpp
+  #define WIFI_SSID "Your_WiFi_SSID"
+  #define WIFI_PASSWORD "Your_WiFi_Password"
+  #define GATEWAY_SERVER "http://<YOUR_PC_IP>:5001"
+  ```
+- Select **ESP32 Dev Module** and upload to your board.
 
 ---
 
 ## 📸 System Demonstration & Hardware
 
-This project combines physical hardware prototyping with a cloud-managed web dashboard. Below are some visuals of our hardware setup and system diagrams.
+This project combines physical hardware prototyping with a cloud-managed web dashboard. Below are visuals of our hardware setup and system diagrams.
 
 ### 🎥 Video Demonstration
 A complete video demonstration of the project, including hardware operation and cloud attendance logging, is available below:
@@ -138,8 +156,6 @@ A complete video demonstration of the project, including hardware operation and 
 <img src="images/Hardware_Setup.png" width="850" alt="Hardware Setup">
 </p>
 
-> **Actual hardware implementation using NodeMCU ESP8266, MFRC522 RFID Reader, 16×2 I2C LCD, and Active Buzzer.**
-
 ### Circuit Diagram
 <p align="center">
 <img src="images/Circuit_Diagram.png" width="850" alt="Circuit Diagram">
@@ -147,38 +163,35 @@ A complete video demonstration of the project, including hardware operation and 
 
 ---
 
-## 🔌 Hardware Wiring & Pinouts
+## 🔌 Hardware Wiring & Pinouts (ESP32 Terminal)
 
 <details>
-<summary><b>Click to expand hardware wiring instructions</b></summary>
+<summary><b>Click to expand hardware wiring pinouts</b></summary>
 
 ### MFRC522 RFID Reader
-
-| MFRC522 Pin | NodeMCU Pin |
-|--------------|-------------|
-| SDA (SS) | D4 (GPIO2) |
-| SCK | D5 (GPIO14) |
-| MOSI | D7 (GPIO13) |
-| MISO | D6 (GPIO12) |
-| RST | D3 (GPIO0) |
-| VCC | 3.3V |
-| GND | GND |
+| MFRC522 Pin | ESP32 Pin |
+|--------------|-----------|
+| SDA (SS)     | GPIO 5    |
+| SCK          | GPIO 18   |
+| MOSI         | GPIO 23   |
+| MISO         | GPIO 19   |
+| RST          | GPIO 27   |
+| 3.3V         | 3.3V      |
+| GND          | GND       |
 
 ### 16×2 LCD Display (I2C)
-
-| LCD Pin | NodeMCU Pin |
-|----------|-------------|
-| SDA | D2 (GPIO4) |
-| SCL | D1 (GPIO5) |
-| VCC | VIN (5V) |
-| GND | GND |
+| LCD Pin | ESP32 Pin |
+|---------|-----------|
+| SDA     | GPIO 21   |
+| SCL     | GPIO 22   |
+| VCC     | 5V / VIN  |
+| GND     | GND       |
 
 ### Active Buzzer
-
-| Buzzer Pin | NodeMCU Pin |
-|------------|-------------|
-| Positive (+) | D8 (GPIO15) |
-| Negative (-) | GND |
+| Buzzer Pin   | ESP32 Pin |
+|--------------|-----------|
+| Positive (+) | GPIO 13   |
+| Negative (-) | GND       |
 
 </details>
 
@@ -186,12 +199,9 @@ A complete video demonstration of the project, including hardware operation and 
 
 ## 🎮 Wokwi Simulation
 
-Don't have the hardware? A complete simulation of the IoT firmware is available on Wokwi!
+Don't have the hardware? A complete simulation of the IoT firmware is available on Wokwi:
 
 🔗 **Wokwi Project:** [https://wokwi.com/projects/468725509737183233](https://wokwi.com/projects/468725509737183233)
-
-> **Note on the Simulator:** 
-> Wokwi provides better peripheral compatibility using the **ESP32** platform. While the actual physical hardware implementation and firmware can target the NodeMCU ESP8266, the simulation uses an ESP32 to demonstrate the same attendance workflow and peripheral interactions seamlessly over the cloud.
 
 ---
 
@@ -200,12 +210,13 @@ Don't have the hardware? A complete simulation of the IoT firmware is available 
 ```text
 RFID-Smart-Attendance-System
 │
-├── frontend/             # Next.js Web Dashboard
-├── backend/              # Node.js/Express REST API
-├── face-recognition/     # Python Face Recognition Module
-├── firmware/             # ESP32/ESP8266 Arduino Source Code
-├── hardware/             # Circuit Diagrams & Wiring Docs
-├── wokwi/                # Online Simulation Configurations
+├── frontend/             # Next.js 15 Web Dashboard (Admin, Faculty, Student)
+├── backend/              # Node.js/Express REST API, SSE & Prisma ORM
+├── face-recognition/     # Python Flask Gateway with DeepFace (Facenet512)
+├── firmware/             # ESP32 Classroom Terminal Arduino Source Code
+├── hardware/             # Circuit Diagrams, Wiring Schematics & BOM
+├── scripts/archive/      # Historical patch scripts and database migration tools
+├── wokwi/                # Online Simulation Diagram & Configurations
 └── README.md             # Project Documentation
 ```
 
