@@ -145,20 +145,34 @@ python code.py
 
 ## 📸 System Demonstration & Hardware
 
-This project combines physical hardware prototyping with a cloud-managed web dashboard. Below are visuals of our hardware setup and system diagrams.
+This project combines physical hardware prototyping with a cloud-managed web dashboard and edge AI face verification.
+
+### 🌐 Web Portal & Administration
+<p align="center">
+  <img src="images/Landing_Page.png" width="850" alt="SmartAttend Portal Landing">
+</p>
+<p align="center">
+  <img src="images/Admin_Dashboard.png" width="850" alt="Central Administration Dashboard">
+</p>
+
+### 🛠️ Hardware Terminal (ESP32 + RC522 + I2C LCD)
+<p align="center">
+  <img src="images/ESP32_Terminal_Hardware.jpg" width="420" alt="ESP32 Classroom Terminal Enclosure">&nbsp;&nbsp;
+  <img src="images/Hardware_Setup_ESP32.jpg" width="420" alt="Hardware Setup Live Operation">
+</p>
+
+### 🤖 Live AI Face Verification Result
+<p align="center">
+  <img src="images/Face_Verification_Live_Success.jpg" width="850" alt="Live DeepFace Verification & Backend Logging">
+</p>
 
 ### 🎥 Video Demonstration
 A complete video demonstration of the project, including hardware operation and cloud attendance logging, is available below:
 🔗 **Watch Demo Videos:** [Google Drive Folder](https://drive.google.com/drive/folders/1vw_WvM3Md_eeNigcoZ_DopTGOFYCARBb)
 
-### Hardware Prototype
-<p align="center">
-<img src="images/Hardware_Setup.png" width="850" alt="Hardware Setup">
-</p>
-
 ### Circuit Diagram
 <p align="center">
-<img src="images/Circuit_Diagram.png" width="850" alt="Circuit Diagram">
+  <img src="images/Circuit_Diagram.png" width="850" alt="Circuit Diagram">
 </p>
 
 ---
