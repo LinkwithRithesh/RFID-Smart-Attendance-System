@@ -129,30 +129,47 @@ The facial recognition module verifies a user's face alongside their RFID scan.
    python code.py
    ```
 
-### ⚠️ Common Errors & Troubleshooting (AI / Python)
-- **Error:** `ModuleNotFoundError: No module named 'cv2'` (or other modules)
-  - *Fix:* The dependencies were not installed correctly. Ensure you activated the virtual environment and ran the `pip install` command successfully.
+### ⚠️ Common Errors & Troubleshooting (AI / Python & Biometrics)
+- **Error:** `FACE VERIFICATION FAILED` with high distance (`0.80 - 0.90`) or green detection box jumping onto your shirt collar.
+  - *Cause:* Haar Cascade parameters set too loosely (`minNeighbors=3`, `minSize=(40,40)`) false-detected shadows or folds on clothing as a face, comparing cloth against the registered face photo.
+  - *Fix:* In `code.py`, ensure `face_cascade.detectMultiScale(..., minNeighbors=5, minSize=(80, 80))` is used, and the bounding box is cropped with padding prior to `DeepFace.verify`.
+- **Error:** `FACE VERIFICATION FAILED` with distance `0.48 - 0.57` (Match confidence ~45% - 53%).
+  - *Cause:* Strict default threshold (`0.40`) rejecting genuine students due to indoor webcam lighting or facial expression differences (e.g. smiling in registered photo vs. neutral live expression).
+  - *Fix:* Calibrate `VERIFY_THRESHOLD = 0.60` for `Facenet512` with `cosine` distance metric in `code.py`.
+- **Error:** `SMARTATTEND CONNECTION ERROR` or backend HTTP 404 (`{"success":false,"message":"No open attendance session for this device"}`).
+  - *Cause:* The ESP32 and AI script verified the student, but no active lecture/attendance session was created for the classroom terminal device in the Web Admin dashboard.
+  - *Fix:* Log in to the Admin Dashboard (`http://localhost:3000/admin/sessions`), select the department, subject, faculty, and click **Start Session**.
 - **Error:** `Could not open camera.`
-  - *Fix:* Your webcam is being used by another application (like Zoom/Teams) or you haven't granted the terminal permission to access the camera.
-- **Error:** `SMARTATTEND CONNECTION ERROR`
-  - *Fix:* The Node.js backend server is not running on port 5000. Start the backend first.
+  - *Fix:* Your webcam is being used by another application (e.g. Teams, browser preview) or terminal lacks camera permissions.
 
 ---
 
-## 6. Hardware Setup (ESP32 / ESP8266)
+## 6. Hardware Setup (ESP32 Terminal)
 If you have the physical hardware components:
 
 **Steps:**
-1. Open the `firmware/` folder in the Arduino IDE.
-2. Update the Wi-Fi credentials (`SSID` and `PASSWORD`) in the code.
-3. Update the `BACKEND_URL` to point to the local IP address of your computer running the Node.js backend.
-4. Select your board (ESP32/NodeMCU) and COM port, then upload the code.
+1. Open `firmware/esp32-terminal/esp32_classroom_terminal/esp32_classroom_terminal.ino` in the Arduino IDE.
+2. In the same directory, create or edit `secrets.h`:
+   ```cpp
+   #define WIFI_SSID "Your_2.4GHz_WiFi"
+   #define WIFI_PASSWORD "Your_Password"
+   #define GATEWAY_SERVER "http://<YOUR_PC_IP>:5001"
+   ```
+   > ⚠️ **CRITICAL ARCHITECTURE NOTE:**
+   > The ESP32 must target the **Python AI Gateway on Port 5001** (`http://<PC_IP>:5001`), **NOT** directly the Node.js backend on Port 5000. The Python gateway handles the RFID lookup, triggers the camera face authentication, and only upon success forwards the verified attendance to Port 5000.
+3. Select board **ESP32 Dev Module**, choose the correct COM port, and upload.
 
-### ⚠️ Common Errors & Troubleshooting (Hardware)
-- **Error:** Hardware fails to connect to Wi-Fi.
-  - *Fix:* Check if the SSID and password are correct. Remember that ESP8266/ESP32 modules only support 2.4GHz Wi-Fi networks, not 5GHz.
+### ⚠️ Common Errors & Troubleshooting (Hardware & Git)
 - **Error:** `A fatal error occurred: Failed to connect to ESP32: Timed out waiting for packet header`
-  - *Fix:* Hold the "BOOT" button on your ESP32 board while it is connecting/uploading in the Arduino IDE.
+  - *Fix:* Press and hold the "BOOT" button on the ESP32 board while the Arduino IDE displays `Connecting........_____`.
+- **Error:** ESP32 repeatedly prints `WiFi connection failed` or restarts.
+  - *Fix:* ESP32 only supports **2.4 GHz** Wi-Fi networks (it cannot connect to 5 GHz bands). Use a 2.4 GHz mobile hotspot or separate router SSID.
+- **Error:** Git push fails with `RPC failed; HTTP 408` or `fatal: the remote end hung up unexpectedly`.
+  - *Fix:* When pushing image assets or large firmware binaries over slower connections, run:
+    ```bash
+    git config http.postBuffer 524288000
+    git push origin main
+    ```
 
 ---
 *Setup Complete! You can now navigate to the Web Dashboard at `http://localhost:3000` to interact with the system.*
