@@ -9,6 +9,8 @@ Ensure you have the following installed on your system before proceeding:
 - **MySQL Server** (Ensure the MySQL service is running)
 - **Python** (v3.8 - v3.11 recommended)
 - **Arduino IDE** (Optional, for hardware flashing)
+  - Required Arduino Libraries: `MFRC522`, `LiquidCrystal_I2C`, `ArduinoJson` (v6 or v7)
+- **Webcam / Camera** (For live AI face verification)
 
 Clone the repository to your machine:
 ```bash
@@ -97,6 +99,11 @@ The Next.js web application is the user interface for Admins, Faculty, and Stude
    ```bash
    npm run dev
    ```
+5. Open your browser and navigate to `http://localhost:3000`.
+   - **Default Admin Login Credentials (from seed):**
+     - **Email:** `admin@campus.edu`
+     - **Password:** `ChangeMe123!`
+   - Log in and change default credentials, create sessions, register students, and configure IoT devices.
 
 ### ⚠️ Common Errors & Troubleshooting (Frontend)
 - **Error:** Frontend shows "Network Error" or cannot fetch data.
@@ -122,9 +129,20 @@ The facial recognition module verifies a user's face alongside their RFID scan.
    ```
 3. Install the required dependencies:
    ```bash
-   pip install opencv-python requests flask deepface tf-keras
+   pip install -r requirements.txt
+   # Or install manually:
+   # pip install opencv-python requests flask deepface tf-keras python-dotenv
    ```
-4. Run the Python server:
+4. Copy and configure the environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+   *(Ensure `BACKEND_URL`, `DEVICE_CODE`, and `DEVICE_API_KEY` match your backend device configuration)*
+5. Configure registered student face images:
+   - Create a subfolder inside `face-recognition/faces/` named with the student's RFID card UID in uppercase hex (e.g., `faces/8970625E/`).
+   - Place a clear front-facing reference image (e.g., `reference.jpg`) inside that subfolder.
+   - Map the UID to the student's name in `face-recognition/students.json`.
+6. Run the Python AI server:
    ```bash
    python code.py
    ```
