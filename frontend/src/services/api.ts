@@ -83,7 +83,19 @@ async function apiFetch(endpoint: string, options: RequestInit = {}) {
 
   const data = await response.json();
   if (!response.ok || !data.success) {
-    throw new Error(data.message || "API request failed");
+    let msg = data.message || "API request failed";
+    const d = data.error || data.details || data.errorDetails;
+    if (d) {
+      if (d.fieldErrors && Object.keys(d.fieldErrors).length > 0) {
+        const issues = Object.entries(d.fieldErrors)
+          .map(([field, errs]) => `${field}: ${(errs as string[]).join(', ')}`)
+          .join(' | ');
+        msg = `${msg}: ${issues}`;
+      } else if (d.formErrors && d.formErrors.length > 0) {
+        msg = `${msg}: ${d.formErrors.join(', ')}`;
+      }
+    }
+    throw new Error(msg);
   }
 
   return data;

@@ -15,7 +15,11 @@ import { LoginCard } from "./LoginCard";
 import Link from "next/link";
 import { api } from "@/services/api";
 
-export const BrandingPanel: React.FC = () => {
+export interface BrandingPanelProps {
+  initialTab?: "LOGIN" | "REGISTER" | "FORGOT";
+}
+
+export const BrandingPanel: React.FC<BrandingPanelProps> = ({ initialTab }) => {
   const [announcements, setAnnouncements] = React.useState<any[]>([]);
 
   React.useEffect(() => {
@@ -172,7 +176,7 @@ export const BrandingPanel: React.FC = () => {
 
         {/* Right Form Card (Col 5) */}
         <div className="lg:col-span-5 flex justify-center">
-          <LoginCard />
+          <LoginCard initialTab={initialTab} />
         </div>
       </div>
     </div>

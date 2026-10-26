@@ -15,6 +15,7 @@ function toPublicUser(user) {
     role: user.role?.name || user.role,
     departmentId: user.departmentId,
     isActive: user.isActive,
+    status: user.status,
   };
   if (user.phone !== undefined) {
     obj.phone = user.phone;

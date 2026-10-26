@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/context/AuthContext";
@@ -37,10 +37,25 @@ interface CourseOption {
   departmentId?: number;
 }
 
-export default function AdminManagementPage() {
+function AdminManagementContent() {
   const router = useRouter();
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"students" | "faculty" | "courses" | "pending">("students");
+  const searchParams = useSearchParams();
+  const tabQuery = searchParams.get("tab")?.toLowerCase();
+
+  const [activeTab, setActiveTab] = useState<"students" | "faculty" | "courses" | "pending">(
+    tabQuery === "pending" || tabQuery === "faculty" || tabQuery === "courses" ? tabQuery : "students"
+  );
+
+  useEffect(() => {
+    if (tabQuery === "pending" || tabQuery === "faculty" || tabQuery === "courses" || tabQuery === "students") {
+      setActiveTab(tabQuery);
+    }
+  }, [tabQuery]);
+
+  const handleTabSwitch = (tab: "students" | "faculty" | "courses" | "pending") => {
+    setActiveTab(tab);
+    router.replace(`/admin/management?tab=${tab}`);
+  };
   const [searchTerm, setSearchTerm] = useState("");
 
   // Real Students State
@@ -61,6 +76,7 @@ export default function AdminManagementPage() {
 
   // Approve / Reject Modal state
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
   const [approvePayload, setApprovePayload] = useState({ rollNumber: "", employeeId: "", designation: "", rfidCardId: "" });
   const [actionPendingItem, setActionPendingItem] = useState<any>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -357,6 +373,7 @@ export default function AdminManagementPage() {
   const handleOpenApproveModal = (item: any) => {
     setActionPendingItem(item);
     setApprovePayload({ rollNumber: "", employeeId: "", designation: "", rfidCardId: "" });
+    setApproveError(null);
     setShowApproveModal(true);
   };
 
@@ -364,6 +381,7 @@ export default function AdminManagementPage() {
     e.preventDefault();
     if (!actionPendingItem) return;
     setSubmitting(true);
+    setApproveError(null);
     try {
       await api.approveRegistration(actionPendingItem.id, approvePayload);
       await loadPending();
@@ -372,7 +390,7 @@ export default function AdminManagementPage() {
       setShowApproveModal(false);
       setShowPendingDetailModal(false);
     } catch (err: any) {
-      alert(err.message || "Failed to approve registration");
+      setApproveError(err.message || "Failed to approve registration");
     } finally {
       setSubmitting(false);
     }
@@ -456,7 +474,7 @@ export default function AdminManagementPage() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white border border-[#E2E8F0] p-3.5 rounded-2xl shadow-xs">
           <div className="flex bg-[#F1F5F9] p-1 rounded-xl text-xs font-bold flex-wrap gap-1">
             <button
-              onClick={() => setActiveTab("students")}
+              onClick={() => handleTabSwitch("students")}
               className={`px-4 py-2 rounded-lg transition-all ${
                 activeTab === "students" ? "bg-white text-[#0B2C5C] shadow-xs" : "text-slate-600 hover:text-[#0B2C5C]"
               }`}
@@ -464,7 +482,7 @@ export default function AdminManagementPage() {
               Students ({students.length})
             </button>
             <button
-              onClick={() => setActiveTab("faculty")}
+              onClick={() => handleTabSwitch("faculty")}
               className={`px-4 py-2 rounded-lg transition-all ${
                 activeTab === "faculty" ? "bg-white text-[#0B2C5C] shadow-xs" : "text-slate-600 hover:text-[#0B2C5C]"
               }`}
@@ -472,7 +490,7 @@ export default function AdminManagementPage() {
               Faculty Staff ({faculty.length})
             </button>
             <button
-              onClick={() => setActiveTab("courses")}
+              onClick={() => handleTabSwitch("courses")}
               className={`px-4 py-2 rounded-lg transition-all ${
                 activeTab === "courses" ? "bg-white text-[#0B2C5C] shadow-xs" : "text-slate-600 hover:text-[#0B2C5C]"
               }`}
@@ -480,7 +498,7 @@ export default function AdminManagementPage() {
               Courses ({courses.length})
             </button>
             <button
-              onClick={() => setActiveTab("pending")}
+              onClick={() => handleTabSwitch("pending")}
               className={`px-4 py-2 rounded-lg transition-all flex items-center space-x-1.5 ${
                 activeTab === "pending"
                   ? "bg-[#0B2C5C] text-white shadow-xs"
@@ -761,6 +779,22 @@ export default function AdminManagementPage() {
               </div>
 
               <div className="space-y-3 text-xs">
+                {(selectedPendingItem.faceImagePath || selectedPendingItem.details?.faceImagePath) && (
+                  <div className="flex items-center space-x-3.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <img
+                      src={selectedPendingItem.faceImagePath || selectedPendingItem.details?.faceImagePath}
+                      alt="Captured Face Biometric"
+                      className="w-16 h-16 object-cover rounded-xl border border-slate-300 shadow-xs"
+                    />
+                    <div>
+                      <span className="text-slate-400 block text-[10px] font-bold uppercase">Biometric Registration</span>
+                      <span className="text-[11px] font-bold text-emerald-700 flex items-center space-x-1 mt-0.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Face Photo Attached</span>
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-2 gap-2">
                   <div>
                     <span className="text-slate-400 block text-[10px] font-bold uppercase">Applicant Name</span>
@@ -856,6 +890,12 @@ export default function AdminManagementPage() {
               </div>
 
               <form onSubmit={handleConfirmApprove} className="space-y-4 text-xs">
+                {approveError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start space-x-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                    <span className="font-semibold">{approveError}</span>
+                  </div>
+                )}
                 <p className="text-slate-600 leading-relaxed">
                   Please provide the required assignment details to approve this {actionPendingItem.role?.name || actionPendingItem.role} account.
                 </p>
@@ -1265,5 +1305,13 @@ export default function AdminManagementPage() {
         )}
       </div>
     </DashboardShell>
+  );
+}
+
+export default function AdminManagementPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center font-bold text-slate-500">Loading Management Console...</div>}>
+      <AdminManagementContent />
+    </Suspense>
   );
 }

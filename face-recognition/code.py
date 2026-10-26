@@ -1,11 +1,16 @@
 import os
 import time
 import threading
+import json
 import cv2
 import requests
 
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from deepface import DeepFace
+import numpy as np
+
+# Load OpenCV Haar cascade once into memory for instant face detection (~15ms)
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 
 
 # ============================================================
@@ -28,7 +33,8 @@ if os.path.exists(env_path):
 
 # IMPORTANT:
 # Put your existing ESP32 device API key here locally.
-DEVICE_API_KEY = os.environ.get("7d5d39b1aaaba5c6c8d2eed73a258635ae6bd770d4c0e1c733f7309228378f69", "PLACEHOLDER_KEY")
+DEVICE_API_KEY = os.environ.get("DEVICE_API_KEY", "7d5d39b1aaaba5c6c8d2eed73a258635ae6bd770d4c0e1c733f7309228378f69")
+
 
 
 # ============================================================
@@ -39,16 +45,39 @@ app = Flask(__name__)
 
 
 # ============================================================
-# FACE DATABASE
+# FACE & STUDENT DATABASE
 # ============================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FACE_FOLDER = os.path.join(BASE_DIR, "faces")
+DB_FILE = os.path.join(BASE_DIR, "students.json")
 
 os.makedirs(
     FACE_FOLDER,
     exist_ok=True
 )
+
+def get_student_name(card_id):
+    if not os.path.exists(DB_FILE):
+        return None
+    try:
+        with open(DB_FILE, "r") as f:
+            db = json.load(f)
+        return db.get(card_id)
+    except Exception:
+        return None
+
+def save_student_name(card_id, name):
+    db = {}
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, "r") as f:
+                db = json.load(f)
+        except Exception:
+            db = {}
+    db[card_id] = name
+    with open(DB_FILE, "w") as f:
+        json.dump(db, f, indent=2)
 
 
 # ============================================================
@@ -206,27 +235,23 @@ def mark_attendance(card_id):
 # ============================================================
 
 def check_rfid(card_id):
-
     """
-    Check whether the RFID card exists in SmartAttend.
-
-    We use the attendance endpoint for this system rather
-    than maintaining a second Google Sheets RFID database.
-
-    NOTE:
-    The actual attendance endpoint itself performs the final
-    authoritative RFID validation.
-
-    This function therefore currently returns True and lets
-    /attendance/mark perform the final validation after face
-    authentication.
+    Check whether the RFID card is registered in the system.
+    Returns True if registered, False otherwise.
     """
+    # 1. Check local student database
+    name = get_student_name(card_id)
+    face_path = os.path.join(FACE_FOLDER, card_id, "face.jpg")
+
+    # Card must exist in student records or have a registered face
+    if name is not None or os.path.exists(face_path):
+        print()
+        print(f"RFID {card_id} is registered ({name or 'Face on disk'}).")
+        return True
 
     print()
-    print("RFID received:", card_id)
-    print("RFID validation will be performed by SmartAttend backend.")
-
-    return True
+    print(f"RFID {card_id} is NOT registered.")
+    return False
 
 
 # ============================================================
@@ -337,7 +362,7 @@ def register_face(card_id, student_name):
 
                     img_path=frame,
 
-                    detector_backend="retinaface",
+                    detector_backend="opencv",
 
                     enforce_detection=True,
 
@@ -436,29 +461,62 @@ def verify_face(card_id):
 
             break
 
-        display_frame = cv2.flip(
-            frame,
-            1
+        # Real-time face detection on preview frame
+        # minNeighbors=5 and minSize=(80, 80) prevent false detections on shirt collars/background objects
+        gray_preview = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        preview_faces = face_cascade.detectMultiScale(
+            gray_preview,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(80, 80)
         )
+
+        display_frame = cv2.flip(frame, 1)
+        h_f, w_f = display_frame.shape[:2]
+
+        # Draw green bounding box around detected face so user knows camera sees them
+        face_detected_in_preview = len(preview_faces) > 0
+        best_face_box = None
+        if face_detected_in_preview:
+            bx, by, bw, bh = max(preview_faces, key=lambda b: b[2] * b[3])
+            best_face_box = (bx, by, bw, bh)
+            # Mirror x coordinates for flipped display
+            flip_x = w_f - (bx + bw)
+            cv2.rectangle(display_frame, (flip_x, by), (flip_x + bw, by + bh), (0, 255, 0), 2)
+            status_text = "FACE DETECTED - PRESS SPACE"
+            status_color = (0, 255, 0)
+        else:
+            status_text = "LOOK AT CAMERA - POSITION FACE"
+            status_color = (0, 165, 255)
 
         cv2.putText(
             display_frame,
             "FACE AUTHENTICATION",
-            (20, 40),
+            (20, 35),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (0, 255, 0),
+            0.7,
+            (255, 255, 255),
+            2
+        )
+
+        cv2.putText(
+            display_frame,
+            status_text,
+            (20, 70),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            status_color,
             2
         )
 
         cv2.putText(
             display_frame,
             "SPACE = Verify | Q = Cancel",
-            (20, 75),
+            (20, 105),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.6,
-            (255, 255, 255),
-            2
+            0.5,
+            (200, 200, 200),
+            1
         )
 
         cv2.imshow(
@@ -487,43 +545,56 @@ def verify_face(card_id):
             cv2.destroyAllWindows()
 
             try:
+                # If a face box was detected, crop with padding for clean verification
+                verify_input = frame
+                if best_face_box is not None:
+                    bx, by, bw, bh = best_face_box
+                    pad_x = int(bw * 0.2)
+                    pad_y = int(bh * 0.2)
+                    y1 = max(0, by - pad_y)
+                    y2 = min(frame.shape[0], by + bh + pad_y)
+                    x1 = max(0, bx - pad_x)
+                    x2 = min(frame.shape[1], bx + bw + pad_x)
+                    cropped = frame[y1:y2, x1:x2]
+                    if cropped.size > 0:
+                        verify_input = cropped
 
+                # Direct verification with Facenet512
                 result = DeepFace.verify(
-
                     img1_path=image_path,
-
-                    img2_path=frame,
-
+                    img2_path=verify_input,
                     model_name="Facenet512",
-
-                    detector_backend="retinaface",
-
-                    enforce_detection=True,
-
+                    detector_backend="opencv",
+                    distance_metric="cosine",
+                    enforce_detection=False,
                     align=True
                 )
+
+                distance = result.get("distance", 1.0)
+                # Facenet512 cosine distance:
+                # Same person (different lighting/facial expressions): 0.20 - 0.58
+                # Different person: 0.68 - 0.95+
+                # DeepFace standard Facenet512 threshold is ~0.55-0.60 for webcam conditions.
+                VERIFY_THRESHOLD = 0.60
+                verified = distance <= VERIFY_THRESHOLD
+
+                # Calculate realistic match confidence
+                if distance <= VERIFY_THRESHOLD:
+                    confidence = round((1.0 - (distance / VERIFY_THRESHOLD) * 0.4) * 100, 1)
+                else:
+                    confidence = round(max(0.0, (1.0 - distance)) * 100, 1)
 
                 print()
                 print("==========================================")
                 print("FACE VERIFICATION RESULT")
                 print("==========================================")
+                print("Verified:", verified)
+                print("Distance:", round(distance, 4))
+                print("Threshold:", VERIFY_THRESHOLD)
+                print(f"Match Confidence: {confidence}%")
+                print("==========================================")
 
-                print(
-                    "Verified:",
-                    result["verified"]
-                )
-
-                print(
-                    "Distance:",
-                    result.get("distance")
-                )
-
-                print(
-                    "Threshold:",
-                    result.get("threshold")
-                )
-
-                return result["verified"]
+                return verified
 
             except Exception as e:
 
@@ -602,8 +673,10 @@ def process_card(card_id):
 
             return "FAIL_UNKNOWN"
 
+        save_student_name(card_id, student_name)
+
         print()
-        print("FACE REGISTERED LOCALLY")
+        print(f"FACE REGISTERED LOCALLY FOR: {student_name}")
         print()
         print("IMPORTANT:")
         print("Student RFID/registration should now")
@@ -665,6 +738,41 @@ def process_card(card_id):
     )
 
     return result
+
+
+# ============================================================
+# ESP32 LOOKUP ENDPOINT (Instant LCD feedback)
+# ============================================================
+
+@app.route(
+    "/lookup",
+    methods=["POST"]
+)
+def lookup_endpoint():
+
+    global current_mode
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    card_id = str(
+        data.get("card_id", "")
+    ).strip()
+
+    # If currently in REGISTER mode, notify ESP32 to show UID
+    if current_mode == "REGISTER":
+        return jsonify({
+            "mode": "REGISTER",
+            "name": ""
+        })
+
+    # Attendance mode: lookup name from local database
+    name = get_student_name(card_id) or ""
+    return jsonify({
+        "mode": "ATTENDANCE",
+        "name": name
+    })
 
 
 # ============================================================
@@ -766,6 +874,23 @@ if __name__ == "__main__":
     )
 
     keyboard_thread.start()
+
+    print()
+    print("Pre-warming DeepFace models for instant verification...")
+    try:
+        DeepFace.build_model("Facenet512")
+        # Run dummy verification to pre-warm TensorFlow computation graph and CUDA/CPU caches
+        dummy = np.zeros((160, 160, 3), dtype=np.uint8)
+        DeepFace.verify(
+            img1_path=dummy,
+            img2_path=dummy,
+            model_name="Facenet512",
+            detector_backend="skip",
+            enforce_detection=False
+        )
+        print("Facenet512 engine warmed and ready.")
+    except Exception as e:
+        print("Warmup notice:", e)
 
     print()
     print("Starting Wi-Fi server...")

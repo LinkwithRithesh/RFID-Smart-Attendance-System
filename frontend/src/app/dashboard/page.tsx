@@ -639,16 +639,24 @@ function AdminDashboard() {
         </div>
 
         <div className="p-6 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs space-y-3">
-          <div className="font-extrabold text-sm text-[#0B2C5C]">User Management & Approvals</div>
+          <div className="font-extrabold text-sm text-[#0B2C5C]">Registration Approvals & Users</div>
           <p className="text-xs text-slate-600 leading-relaxed">
             Approve pending student/faculty registrations, assign roll numbers, and directly add new faculty accounts.
           </p>
-          <Link
-            href="/admin/users"
-            className="inline-block px-4 py-2 rounded-full bg-[#0B2C5C] hover:bg-[#071E40] text-white font-bold text-xs shadow-xs"
-          >
-            Manage Users →
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/admin/management?tab=pending"
+              className="inline-block px-4 py-2 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs"
+            >
+              Pending Approvals →
+            </Link>
+            <Link
+              href="/admin/users"
+              className="inline-block px-4 py-2 rounded-full bg-[#0B2C5C] hover:bg-[#071E40] text-white font-bold text-xs shadow-xs"
+            >
+              Manage Users →
+            </Link>
+          </div>
         </div>
       </div>
     </div>

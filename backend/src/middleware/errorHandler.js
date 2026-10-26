@@ -13,6 +13,7 @@ function errorHandler(err, req, res, next) {
   const message = isApiError ? err.message : 'Internal server error';
 
   logger.error(err.message, {
+    details: isApiError ? err.errorDetails : undefined,
     stack: err.stack,
     path: req.originalUrl,
     method: req.method,

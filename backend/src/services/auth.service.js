@@ -130,7 +130,7 @@ async function verifyRegisterOtp(email, inputOtp) {
       rfidCardId: rfidVal,
       faceEmbeddingPath,
       status: 'PENDING',
-      isActive: true,
+      isActive: false,
       [profileRelation]: { create: profileData },
     },
   });
@@ -240,29 +240,8 @@ async function changePassword(userId, oldPassword, newPassword, ipAddress) {
 }
 
 async function logout(userId) {
-  const faceEmbeddingPath = payload.faceFileName ? `uploads/faces/${payload.faceFileName}` : null;
-
-  const user = await prisma.user.create({
-    data: {
-      fullName: payload.fullName,
-      email: payload.email,
-      passwordHash,
-      roleId: roleRow.id,
-      departmentId: payload.departmentId ? Number(payload.departmentId) : null,
-      phone: payload.mobile || payload.phone || null,
-      rfidCardId: rfidVal,
-      faceEmbeddingPath,
-      status: 'PENDING',
-      isActive: true,
-      [profileRelation]: { create: profileData },
-    },
-  });
-
-  return {
-    id: user.id,
-    registrationId: regId,
-    status: user.status,
-  };
+  await userRepository.updateRefreshTokenHash(userId, null);
+  return true;
 }
 
 async function login(emailOrId, password, ipAddress) {

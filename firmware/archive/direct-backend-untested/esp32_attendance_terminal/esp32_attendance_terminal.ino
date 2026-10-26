@@ -32,7 +32,7 @@ const char* WIFI_SSID     = "Orbit";
 const char* WIFI_PASSWORD = "";
 const char* BACKEND_BASE  = "http://192.168.1.100:5000/api/v1"; // your backend's LAN IP, not localhost
 const char* DEVICE_CODE   = "ESP32-ECE-01";     // from device registration (Step 1)
-const char* DEVICE_API_KEY = "YOUR_DEVICE_API_KEY_HERE"; // shown once at registration — copy it now
+const char* DEVICE_API_KEY = "7d5d39b1aaaba5c6c8d2eed73a258635ae6bd770d4c0e1c733f7309228378f69"; // shown once at registration — copy it now
 const char* FIRMWARE_VERSION = "1.0.0";
 
 // ---------------- PIN CONFIG — verify against your board ----------------

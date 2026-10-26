@@ -26,11 +26,46 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/services/api";
 
-export const LoginCard: React.FC = () => {
+export interface LoginCardProps {
+  initialTab?: "LOGIN" | "REGISTER" | "FORGOT";
+}
+
+export const LoginCard: React.FC<LoginCardProps> = ({ initialTab = "LOGIN" }) => {
   const { login, isLoading } = useAuth();
   
   // Main Tab: "LOGIN" | "REGISTER" | "FORGOT"
-  const [mainTab, setMainTab] = useState<"LOGIN" | "REGISTER" | "FORGOT">("LOGIN");
+  const [mainTab, setMainTab] = useState<"LOGIN" | "REGISTER" | "FORGOT">(initialTab);
+
+  const handleTabChange = (tab: "LOGIN" | "REGISTER" | "FORGOT") => {
+    setMainTab(tab);
+    setError(null);
+    if (tab === "REGISTER") setRegStep("FORM");
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (tab === "REGISTER") {
+        url.searchParams.set("tab", "register");
+      } else if (tab === "FORGOT") {
+        url.searchParams.set("tab", "forgot");
+      } else {
+        url.searchParams.delete("tab");
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab")?.toLowerCase();
+      if (tabParam === "register" || tabParam === "registration" || initialTab === "REGISTER") {
+        setMainTab("REGISTER");
+      } else if (tabParam === "forgot" || initialTab === "FORGOT") {
+        setMainTab("FORGOT");
+      }
+    } else if (initialTab) {
+      setMainTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Login state - STRICTLY START EMPTY per Ground Rule 3
   const [loginId, setLoginId] = useState("");
@@ -202,7 +237,9 @@ export const LoginCard: React.FC = () => {
     setRegStep("CAMERA");
   };
 
-  // Step 1.5: Submit Face and Registration Form to Generate OTP
+  // Registered Email saved from backend response
+  const [registeredEmail, setRegisteredEmail] = useState("");
+
   const handleSendRegisterOtpWithFace = async () => {
     setError(null);
     if (!capturedFace) {
@@ -220,7 +257,7 @@ export const LoginCard: React.FC = () => {
       const payload: any = {
         fullName: regFullName.trim(),
         email: regPersonalEmail.trim(),
-          personalEmail: regPersonalEmail.trim(),
+        personalEmail: regPersonalEmail.trim(),
         mobile: regMobile.trim(),
         role: regRole,
         departmentId: Number(regDeptId),
@@ -251,6 +288,7 @@ export const LoginCard: React.FC = () => {
         } else {
           setDevOtpCode(null);
         }
+        setRegisteredEmail(res.email || regPersonalEmail.trim());
         setOtpCountdown(300);
         setOtpInput("");
         setRegStep("OTP");
@@ -274,7 +312,8 @@ export const LoginCard: React.FC = () => {
 
     setSubmittingReg(true);
     try {
-      const res = await api.verifyRegisterOtp(`${regMobile.trim()}@temp.local`, otpInput.trim());
+      const emailToVerify = (registeredEmail || regPersonalEmail).trim();
+      const res = await api.verifyRegisterOtp(emailToVerify, otpInput.trim());
       if (res.success && res.data) {
         setRegSuccessInfo({
           id: res.data.id,
@@ -407,7 +446,7 @@ export const LoginCard: React.FC = () => {
       <div className="grid grid-cols-3 gap-1 p-1 mb-6 bg-[#F1F5F9] rounded-xl border border-[#E2E8F0] text-xs font-bold">
         <button
           type="button"
-          onClick={() => { setMainTab("LOGIN"); setError(null); }}
+          onClick={() => handleTabChange("LOGIN")}
           className={`py-2 rounded-lg text-center transition-all ${
             mainTab === "LOGIN"
               ? "bg-white text-[#0B2C5C] shadow-xs border border-[#E2E8F0]"
@@ -419,7 +458,7 @@ export const LoginCard: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => { setMainTab("REGISTER"); setRegStep("FORM"); setError(null); }}
+          onClick={() => handleTabChange("REGISTER")}
           className={`py-2 rounded-lg text-center transition-all ${
             mainTab === "REGISTER"
               ? "bg-white text-[#0B2C5C] shadow-xs border border-[#E2E8F0]"
@@ -431,7 +470,7 @@ export const LoginCard: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => { setMainTab("FORGOT"); setError(null); }}
+          onClick={() => handleTabChange("FORGOT")}
           className={`py-2 rounded-lg text-center transition-all ${
             mainTab === "FORGOT"
               ? "bg-white text-[#0B2C5C] shadow-xs border border-[#E2E8F0]"
@@ -958,7 +997,7 @@ export const LoginCard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setMainTab("LOGIN");
+                  handleTabChange("LOGIN");
                   setRegStep("FORM");
                   setLoginId(regSuccessInfo?.registrationId || "");
                 }}

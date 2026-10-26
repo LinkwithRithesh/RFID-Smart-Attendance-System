@@ -432,20 +432,20 @@ model DocumentFile {
 }
 
 model HelpDeskTicket {
-  id          Int             @id @default(autoincrement())
-  ticketCode  String          @unique(map: "ticket_code") @map("ticket_code") @db.VarChar(50)
-  subject     String          @db.VarChar(255)
-  category    String          @db.VarChar(100)
-  priority    String          @default("NORMAL") @db.VarChar(20)
-  status      String          @default("OPEN") @db.VarChar(20)
-  userId      Int             @map("user_id")
-  assignedTo  Int?            @map("assigned_to")
-  resolvedAt  DateTime?       @map("resolved_at") @db.DateTime(0)
-  createdAt   DateTime        @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt   DateTime        @updatedAt @map("updated_at") @db.DateTime(0)
-  user        User            @relation("TicketCreator", fields: [userId], references: [id], onDelete: Cascade)
-  assignee    User?           @relation("TicketAssignee", fields: [assignedTo], references: [id])
-  messages    TicketMessage[]
+  id         Int             @id @default(autoincrement())
+  ticketCode String          @unique(map: "ticket_code") @map("ticket_code") @db.VarChar(50)
+  subject    String          @db.VarChar(255)
+  category   String          @db.VarChar(100)
+  priority   String          @default("NORMAL") @db.VarChar(20)
+  status     String          @default("OPEN") @db.VarChar(20)
+  userId     Int             @map("user_id")
+  assignedTo Int?            @map("assigned_to")
+  resolvedAt DateTime?       @map("resolved_at") @db.DateTime(0)
+  createdAt  DateTime        @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt  DateTime        @updatedAt @map("updated_at") @db.DateTime(0)
+  user       User            @relation("TicketCreator", fields: [userId], references: [id], onDelete: Cascade)
+  assignee   User?           @relation("TicketAssignee", fields: [assignedTo], references: [id])
+  messages   TicketMessage[]
 
   @@map("helpdesk_tickets")
 }
@@ -603,4 +603,3 @@ model OtpVerification {
 
   @@map("otp_verifications")
 }
-

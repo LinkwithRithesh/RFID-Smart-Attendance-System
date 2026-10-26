@@ -41,7 +41,7 @@ class ApiClient {
   }
 
   public getRefreshToken(): string | null {
-    return this.refreshToken;
+    return this.refreshToken || (typeof window !== 'undefined' ? localStorage.getItem('cegov_refresh_token') : null);
   }
 
   public clearTokens() {
@@ -84,7 +84,7 @@ class ApiClient {
 
       // Handle 401 Unauthorized with silent token rotation
       if (response.status === 401 && retryCount === 0) {
-        if (!this.refreshToken) {
+        if (!this.getRefreshToken()) {
           this.handleAuthFailure();
           return {
             data: null,
@@ -176,7 +176,7 @@ class ApiClient {
       const res = await fetch(`${this.baseUrl}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken: this.refreshToken }),
+        body: JSON.stringify({ refreshToken: this.getRefreshToken() }),
       });
 
       if (!res.ok) return false;

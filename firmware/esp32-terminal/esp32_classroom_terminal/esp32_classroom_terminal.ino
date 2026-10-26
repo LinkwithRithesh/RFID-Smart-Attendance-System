@@ -62,7 +62,7 @@
 // CONFIGURATION: TIMEOUTS & INTERVALS
 // ============================================================
 
-const unsigned long PYTHON_TIMEOUT_MS = 30000;
+const unsigned long PYTHON_TIMEOUT_MS = 45000;
 const unsigned long HEARTBEAT_INTERVAL_MS = 60000;
 const unsigned long DUPLICATE_SWIPE_COOLDOWN_MS = 3000;
 
@@ -74,6 +74,7 @@ const unsigned long DUPLICATE_SWIPE_COOLDOWN_MS = 3000;
 //
 // The Python Flask gateway must run on port 5001.
 const char* PYTHON_BASE = "http://192.168.137.1:5001";
+
 
 // ============================================================
 // DEVICE CONFIGURATION
@@ -324,13 +325,60 @@ void loop() {
 
   lcd.clear();
 
-  lcd.setCursor(0, 0);
-  lcd.print("Card Detected");
+  String studentName = "";
+  String currentMode = "ATTENDANCE";
 
-  lcd.setCursor(0, 1);
-  lcd.print(cardId);
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient lookupHttp;
+    String lookupUrl = String(PYTHON_BASE) + "/lookup";
+    lookupUrl.trim();
+    lookupHttp.begin(lookupUrl);
+    lookupHttp.setTimeout(3000); // Quick 3s timeout
+    lookupHttp.addHeader("Content-Type", "application/json");
 
-  delay(1000);
+    StaticJsonDocument<128> lookupDoc;
+    lookupDoc["card_id"] = cardId;
+    String reqBody;
+    serializeJson(lookupDoc, reqBody);
+
+    int code = lookupHttp.POST(reqBody);
+    if (code == 200) {
+      StaticJsonDocument<256> resDoc;
+      DeserializationError err = deserializeJson(resDoc, lookupHttp.getString());
+      if (!err) {
+        currentMode = resDoc["mode"].as<String>();
+        studentName = resDoc["name"].as<String>();
+      }
+    }
+    lookupHttp.end();
+  }
+
+  // Display feedback on LCD
+  if (currentMode == "REGISTER") {
+    Serial.println("MODE: REGISTER - Showing UID: " + cardId);
+    lcd.setCursor(0, 0);
+    lcd.print("REGISTER MODE");
+    lcd.setCursor(0, 1);
+    lcd.print("UID: " + cardId);
+  } else if (studentName.length() > 0) {
+    Serial.println("Recognized Student: " + studentName);
+    lcd.setCursor(0, 0);
+    lcd.print("Hello,");
+    lcd.setCursor(0, 1);
+    // Truncate to 16 chars for 16x2 LCD
+    if (studentName.length() > 16) {
+      lcd.print(studentName.substring(0, 16));
+    } else {
+      lcd.print(studentName);
+    }
+  } else {
+    lcd.setCursor(0, 0);
+    lcd.print("Card Detected");
+    lcd.setCursor(0, 1);
+    lcd.print(cardId);
+  }
+
+  delay(1500);
 
   // ----------------------------------------------------------
   // PROCESS CARD
@@ -346,19 +394,23 @@ void loop() {
 void connectWiFi() {
 
   if (WiFi.status() == WL_CONNECTED) {
-
     return;
   }
 
   Serial.println();
-  Serial.println("Connecting to WiFi...");
+  Serial.println("Resetting WiFi stack...");
 
-  lcd.clear();
-
-  lcd.setCursor(0, 0);
-  lcd.print("Connecting WiFi");
+  WiFi.disconnect(true, true); // Clear old config & disconnect
+  delay(500);
 
   WiFi.mode(WIFI_STA);
+  delay(100);
+
+  Serial.println("Connecting to WiFi: " + String(WIFI_SSID));
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Connecting WiFi");
 
   WiFi.begin(
     WIFI_SSID,
@@ -373,9 +425,7 @@ void connectWiFi() {
   ) {
 
     delay(500);
-
     Serial.print(".");
-
     attempts++;
   }
 
@@ -491,6 +541,7 @@ void sendRFIDToPython(
   String url =
     String(PYTHON_BASE) +
     "/rfid";
+  url.trim();
 
   Serial.println();
   Serial.println(
@@ -684,6 +735,32 @@ void sendRFIDToPython(
   }
 
   // ----------------------------------------------------------
+  // SUCCESS REGISTRATION
+  // ----------------------------------------------------------
+
+  if (
+    response == "SUCCESS_REG"
+  ) {
+
+    Serial.println();
+    Serial.println("STUDENT REGISTERED SUCCESSFULLY");
+
+    lcd.setCursor(0, 0);
+    lcd.print("REGISTRATION");
+
+    lcd.setCursor(0, 1);
+    lcd.print("Successful!");
+
+    beepSuccess();
+
+    delay(2500);
+
+    showReadyScreen();
+
+    return;
+  }
+
+  // ----------------------------------------------------------
   // INVALID CARD
   // ----------------------------------------------------------
 
@@ -692,18 +769,18 @@ void sendRFIDToPython(
   ) {
 
     Serial.println(
-      "Invalid or inactive RFID."
+      "Card not registered in system."
     );
 
     lcd.setCursor(0, 0);
-    lcd.print("INVALID RFID");
+    lcd.print("NOT REGISTERED");
 
     lcd.setCursor(0, 1);
     lcd.print("Access Denied");
 
     beepDenied();
 
-    delay(2000);
+    delay(2500);
 
     showReadyScreen();
 

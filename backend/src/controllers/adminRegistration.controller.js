@@ -27,8 +27,10 @@ async function getPendingRegistrations(req, res, next) {
       registrationId: u.studentProfile?.enrollmentNumber || u.facultyProfile?.employeeId || `USER-${u.id}`,
       submittedAt: u.createdAt,
       status: u.status,
+      faceImagePath: u.faceEmbeddingPath ? (u.faceEmbeddingPath.startsWith('http') ? u.faceEmbeddingPath : `/${u.faceEmbeddingPath}`) : null,
       details: {
         rfidCardId: u.rfidCardId || null,
+        faceImagePath: u.faceEmbeddingPath ? (u.faceEmbeddingPath.startsWith('http') ? u.faceEmbeddingPath : `/${u.faceEmbeddingPath}`) : null,
         courseName: u.studentProfile?.course?.name || null,
         currentSemester: u.studentProfile?.currentSemester || null,
         admissionYear: u.studentProfile?.admissionYear || null,
@@ -73,6 +75,7 @@ async function getPendingRegistrationById(req, res, next) {
       submittedAt: user.createdAt,
       status: user.status,
       rfidCardId: user.rfidCardId || null,
+      faceImagePath: user.faceEmbeddingPath ? (user.faceEmbeddingPath.startsWith('http') ? user.faceEmbeddingPath : `/${user.faceEmbeddingPath}`) : null,
       studentProfile: user.studentProfile ? {
         rollNumber: user.studentProfile.rollNumber,
         courseId: user.studentProfile.courseId,

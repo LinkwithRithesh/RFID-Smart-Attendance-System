@@ -122,6 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       label: "Institutional CRUD",
       icon: Building2,
       children: [
+        { label: "Pending Registrations", href: "/admin/management?tab=pending" },
         { label: "Students Directory", href: "/admin/management?tab=students" },
         { label: "Faculty Directory", href: "/admin/management?tab=faculty" },
         { label: "Courses & Sections", href: "/admin/management?tab=courses" },
